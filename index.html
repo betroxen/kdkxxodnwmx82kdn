@@ -207,8 +207,8 @@
 </head>
   <body>
     <div id="root"></div>
-    <!-- CRITICAL FIX: Script path without leading slash for maximum compatibility -->
-    <script type="module" src="src/index.tsx"></script>
+    <!-- CRITICAL FIX: The leading slash is restored for correct production asset injection by Vite -->
+    <script type="module" src="/src/index.tsx"></script>
   </body>
 </html>
 
