@@ -1,6 +1,9 @@
-import { account } from '../lib/appwriteConfig'; 
-import { AppwriteException, Query } from 'appwrite';
 import React, { useState, useEffect, useRef } from 'react';
+// NEW IMPORTS FOR APPWRITE
+import { account } from '../lib/appwriteConfig';
+import { AppwriteException } from 'appwrite';
+// END NEW IMPORTS
+
 import { Icons } from './icons';
 import { Button } from './Button';
 import { Input } from './Input';
@@ -65,22 +68,36 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTa
         setIsLoading(false);
     }
 
+    // --- APPWRITE HANDLE CHECK INTEGRATION ---
     const checkHandle = () => {
         if (handleTimeoutRef.current) clearTimeout(handleTimeoutRef.current);
         if (username.length < 3) { setHandleAvailable(null); return; }
-        
+
         setIsCheckingHandle(true);
-        handleTimeoutRef.current = setTimeout(() => {
-            const isAvailable = !['taken', 'admin'].includes(username.toLowerCase());
-            setHandleAvailable(isAvailable); 
-            setIsCheckingHandle(false);
+        handleTimeoutRef.current = setTimeout(async () => {
+            try {
+                // IMPORTANT: For true uniqueness check, you should use an Appwrite Function 
+                // to query the Users database or check against reserved/taken names.
+                // Here, we simulate by checking for reserved names only.
+                const isAvailable = !['taken', 'admin', 'zapway'].includes(username.toLowerCase());
+                
+                setHandleAvailable(isAvailable); 
+            } catch (e) {
+                console.error('Handle check failed:', e);
+                setHandleAvailable(false); // Assume failure or taken
+            } finally {
+                setIsCheckingHandle(false);
+            }
         }, 600);
     };
+    // ----------------------------------------
 
+    // --- APPWRITE SUBMIT INTEGRATION ---
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
+        // ------------------ VALIDATION PROTOCOL ------------------
         if (activeTab === 'login') {
             if (!email || !password) { setError('AUTH_ERR: CREDENTIALS MISSING'); return; }
         } else {
@@ -90,19 +107,51 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTa
             if (!termsAccepted) { setError('AUTH_ERR: AFFIRMATION PROTOCOL REQUIRED'); return; }
             if (handleAvailable === false) { setError('AUTH_ERR: HANDLE UNAVAILABLE'); return; }
         }
+        // ---------------------------------------------------------
 
         setIsLoading(true);
 
-        setTimeout(() => {
-            setIsLoading(false);
-            if (email.includes('fail')) {
-                 setError('AUTH_ERR: INVALID CREDENTIALS. RETRY.');
+        try {
+            if (activeTab === 'login') {
+                // *** APPWRITE LOGIN EXECUTION ***
+                await account.createEmailPasswordSession(email, password);
+                
             } else {
-                onLoginSuccess();
-                resetForm();
+                // *** APPWRITE REGISTRATION EXECUTION ***
+                
+                // 1. Create the user account (username goes into the 'name' attribute)
+                await account.create(
+                    'unique()', 
+                    email, 
+                    password, 
+                    username 
+                );
+
+                // 2. Immediately log in the user after creation
+                await account.createEmailPasswordSession(email, password);
+                
+                // (Future Task: Create User/Points DB entry here)
+
             }
-        }, 1500);
+
+            // --- Success Protocol ---
+            onLoginSuccess();
+            resetForm();
+
+        } catch (err) {
+            // --- Failure Protocol ---
+            if (err instanceof AppwriteException) {
+                const message = err.message.toUpperCase().replace('USER WITH THE REQUESTED ID ALREADY EXISTS.', 'ALIAS OR EMAIL TAKEN');
+                setError(`AUTH_ERR: ${err.type || 'SYSTEM'}: ${message}`);
+            } else {
+                setError('AUTH_ERR: UNKNOWN CRITICAL FAILURE.');
+                console.error(err);
+            }
+        } finally {
+            setIsLoading(false);
+        }
     };
+    // ------------------------------------
 
     if (!isOpen) return null;
 
