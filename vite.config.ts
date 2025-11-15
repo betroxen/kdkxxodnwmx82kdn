@@ -13,21 +13,12 @@ export default defineConfig(({ mode }) => {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
       },
-      // Alias block remains minimal
       resolve: {
         alias: {
+          // This alias is still valid for importing files relative to the root
           '@': './',
         }
       },
-
-      // --- FINAL CRITICAL BUILD FIX: EXPLICIT RELATIVE PATH ---
-      build: {
-        rollupOptions: {
-          input: {
-            // FIX: Using explicit relative path './src/index.tsx' 
-            main: './src/index.tsx', 
-          },
-        },
-      }
+      // No 'build' block needed, trust the defaults now that paths are fixed.
     };
 });
