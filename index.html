@@ -207,8 +207,8 @@
 </head>
   <body>
     <div id="root"></div>
-    <!-- CRITICAL FIX: The leading slash is restored for correct production asset injection by Vite -->
-    <script type="module" src="/src/index.tsx"></script>
+    <!-- CRITICAL FIX: Script path now points to the file in the root directory. -->
+    <script type="module" src="./index.tsx"></script>
   </body>
 </html>
 
