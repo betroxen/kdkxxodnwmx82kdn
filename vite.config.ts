@@ -1,4 +1,3 @@
-import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -11,21 +10,24 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [react()],
       define: {
+        // Keeping API key definitions clean
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
       },
+      // Note: Removed 'path' import and usage for simpler path resolution
       resolve: {
+        // Alias simplified to relative path
         alias: {
-          '@': path.resolve(__dirname, '.'),
+          '@': './',
         }
       },
 
-      // --- CRITICAL BUILD FIX: SYNCHRONIZED ENTRY PATH ---
+      // --- CRITICAL BUILD FIX: DIRECT RELATIVE ENTRY PATH ---
       build: {
         rollupOptions: {
           input: {
-            // FIX: Changed 'src/main.tsx' to 'src/index.tsx' to match your HTML reference.
-            main: path.resolve(__dirname, 'src/index.tsx'), 
+            // FIX: Using simple string path 'src/index.tsx' to bypass container environment pathing issues.
+            main: 'src/index.tsx', 
           },
         },
       }
