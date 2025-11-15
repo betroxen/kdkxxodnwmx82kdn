@@ -24,6 +24,6 @@
     "baseUrl": ".", 
     "rootDir": "."  
   },
-  "include": ["**/*.ts", "**/*.tsx"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": ["**/*.ts", "**/*.tsx"]
+  // REMOVED: "references": [{ "path": "./tsconfig.node.json" }]
 }
