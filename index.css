@@ -1,3 +1,8 @@
+/* -------------------------------------------------------------------
+| ZAPCORE GLOBAL STYLESHEET - CYAN NEON PROTOCOL
+| Integrates custom fonts, scrollbar, and ZapCore component aesthetics.
+------------------------------------------------------------------- */
+
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
 
 @tailwind base;
@@ -39,18 +44,23 @@
     --color-text-primary: #ffffff;
     --color-text-secondary: #c0c0c0;
     --color-text-tertiary: #666666;
-    
-    /* Neon Surge (Accent) */
+
+    /* Neon Surge (Accent) - New Cyan-Green */
     --color-neon-surge: #00ffc0;
 
     /* Status Colors */
     --color-warning-high: #ff5757;
+    
+    /* Variables for Shadows/Animations */
+    --shadow-dark-inset: inset 5px 5px 12px rgba(0, 0, 0, 1.0);
+    --shadow-light-inset: inset -5px -5px 12px rgba(40, 40, 40, 0.4);
+    --shadow-outer-deep: 0 6px 15px rgba(0, 0, 0, 0.5);
+    --shadow-hover-glow: 0 0 25px rgba(0, 255, 192, 0.6);
   }
 
   body {
     background-color: var(--color-foundation);
     color: var(--color-text-primary);
-    /* Apply primary font for all Latin text */
     font-family: 'JetBrains Mono', monospace; 
     min-height: 100vh;
     overflow-y: scroll;
@@ -71,8 +81,118 @@
   .font-orbitron {
     font-family: 'Orbitron', sans-serif;
   }
-  
+
   .font-jetbrains-mono {
     font-family: 'JetBrains Mono', monospace;
   }
+}
+
+/* |--------------------------------------------------------------------------
+| ZAPCORE COMPONENT STYLES
+|--------------------------------------------------------------------------
+*/
+
+/* --- NEON GRADIENT TEXT EFFECT --- */
+.neon-gradient-text {
+    color: var(--color-neon-surge); 
+    background: linear-gradient(45deg, var(--color-neon-surge) 0%, #00a080 100%); /* Adjusted gradient stop */
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-fill-color: transparent;
+}
+
+
+/* --- MARQUEE ANIMATION --- */
+@keyframes slide {
+    0% { transform: translate3d(0, 0, 0); }
+    100% { transform: translate3d(-50%, 0, 0); }
+}
+.animate-slide { 
+    animation: slide 30s linear infinite; 
+}
+
+.mask-image-lr {
+    mask-image: linear-gradient(90deg, transparent, white 5%, white 95%, transparent);
+    -webkit-mask-image: linear-gradient(90deg, transparent, white 5%, white 95%, transparent);
+}
+
+.marquee-text-hover:hover {
+    color: var(--color-neon-surge);
+    text-shadow: 0 0 8px var(--color-neon-surge);
+}
+
+
+/* --- CARVED CARD DESIGN (Deep 3D Inset) --- */
+.card-carved {
+    background-color: var(--color-foundation-light);
+    border: 1px solid var(--color-border-dark);
+    transition: all 0.4s ease-in-out;
+    border-radius: 12px;
+    
+    box-shadow: 
+        var(--shadow-dark-inset), 
+        var(--shadow-light-inset),
+        var(--shadow-outer-deep);
+}
+
+.card-carved:hover {
+    transform: translateY(-3px); 
+    box-shadow: 
+        var(--shadow-hover-glow), 
+        inset 3px 3px 8px rgba(0, 0, 0, 0.9),
+        inset -3px -3px 8px rgba(40, 40, 40, 0.2); 
+    border-color: var(--color-neon-surge);
+}
+
+/* Icon Container Carved Style */
+.icon-container-carved {
+     background-color: var(--color-foundation);
+     border: 1px solid var(--color-border-dark);
+     border-radius: 50%;
+     box-shadow: 
+        inset 3px 3px 6px rgba(0, 0, 0, 1.0),
+        inset -3px -3px 6px rgba(30, 30, 30, 0.3);
+     transition: all 0.3s ease-in-out;
+}
+
+/* --- ROBUST ICON ANIMATION & PULSE --- */
+
+.group:hover .icon-container-carved {
+    transform: scale(1.05);
+    box-shadow: 
+        0 0 15px var(--color-neon-surge), 
+        inset 3px 3px 6px rgba(0, 0, 0, 1.0),
+        inset -3px -3px 6px rgba(30, 30, 30, 0.3);
+    border-color: var(--color-neon-surge);
+}
+
+.icon-spin {
+    transition: transform 0.8s ease-in-out; 
+}
+.group:hover .icon-spin {
+    transform: rotate(360deg);
+}
+
+/* Subtle Card Pulse */
+@keyframes pulse-shadow {
+    0%, 100% {
+        box-shadow: var(--shadow-dark-inset), var(--shadow-light-inset), var(--shadow-outer-deep);
+    }
+    50% {
+        box-shadow: 
+            var(--shadow-dark-inset), 
+            var(--shadow-light-inset),
+            0 0 15px rgba(0, 255, 192, 0.2), 
+            0 8px 20px rgba(0, 0, 0, 0.7);
+    }
+}
+.card-pulse { 
+    animation: pulse-shadow 4s infinite ease-in-out; 
+}
+
+/* Read Protocol link color */
+.text-read-protocol {
+    color: var(--color-neon-surge); 
+    transition: color 0.3s ease;
 }
