@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 // APPWRITE IMPORTS
 import { account } from '../lib/appwriteConfig'; 
 import { AppwriteException } from 'appwrite';
-// GLOBAL CONTEXT IMPORT
-import { useAppContext } from '../context/AppProvider'; 
+// GLOBAL CONTEXT IMPORT - FIXED PATH
+import { useAppContext } from '../context/AppContext'; 
 
 import { Icons } from './icons';
 import { Button } from './Button';
@@ -21,7 +21,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTa
     // --- USE GLOBAL CONTEXT HOOK ---
     const { login: globalLogin, openAuthModal, closeAuthModal } = useAppContext(); 
     // -------------------------------
-    
+
     const [activeTab, setActiveTab] = useState<'login' | 'register'>(initialTab);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -82,7 +82,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTa
             try {
                 // Simulation Check (replace with Appwrite Function for security)
                 const isAvailable = !['taken', 'admin', 'zapway'].includes(username.toLowerCase());
-                
+
                 setHandleAvailable(isAvailable); 
             } catch (e) {
                 console.error('Handle check failed:', e);
@@ -92,7 +92,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTa
             }
         }, 600);
     };
-    
+
     // --- APPWRITE SUBMIT EXECUTION ---
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -116,7 +116,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTa
             if (activeTab === 'login') {
                 // 1. LOGIN
                 await account.createEmailPasswordSession(email, password);
-                
+
             } else {
                 // 1. REGISTER
                 await account.create(
@@ -134,7 +134,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTa
             globalLogin(user); // Send user object to AppProvider
             closeAuthModal(); // Close the modal via global context function
             // ---------------------------------------------
-            
+
         } catch (err) {
             // --- FAILURE PROTOCOL ---
             if (err instanceof AppwriteException) {
