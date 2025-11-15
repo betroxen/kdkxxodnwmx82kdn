@@ -85,9 +85,10 @@ function App() {
     }
   };
 
+  // --- UNAUTHENTICATED VIEW ---
   if (!isLoggedIn) {
     return (
-      <div className="bg-foundation text-text-primary font-rajdhani min-h-screen flex flex-col">
+      <div className="bg-foundation text-text-primary font-jetbrains-mono min-h-screen flex flex-col custom-scrollbar">
         <AuthModal 
           isOpen={isAuthModalOpen}
           onClose={closeAuthModal}
@@ -109,8 +110,9 @@ function App() {
     );
   }
 
+  // --- AUTHENTICATED VIEW ---
   return (
-    <div className="bg-foundation text-text-primary font-rajdhani min-h-screen">
+    <div className="bg-foundation text-text-primary font-jetbrains-mono min-h-screen custom-scrollbar">
       <AuthModal 
         isOpen={isAuthModalOpen}
         onClose={closeAuthModal}
@@ -138,7 +140,8 @@ function App() {
         setIsMobileOpen={setIsMobileOpen}
       />
       <div
-        className={`relative flex flex-col min-h-screen transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] md:pl-[var(--sidebar-width)]`}
+        // Apply custom scrollbar to the main content area for desktop view scrolling
+        className={`relative flex flex-col min-h-screen transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] md:pl-[var(--sidebar-width)] custom-scrollbar`}
         style={{ '--sidebar-width': isCollapsed ? '72px' : '256px' } as React.CSSProperties}
       >
         <main className="flex-grow pt-20 md:pt-24 pb-12">
@@ -161,3 +164,4 @@ function App() {
 }
 
 export default App;
+
