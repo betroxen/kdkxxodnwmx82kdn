@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-// NEW IMPORTS FOR APPWRITE
-import { account } from '../lib/appwriteConfig';
+// APPWRITE IMPORTS
+import { account } from '../lib/appwriteConfig'; 
 import { AppwriteException } from 'appwrite';
-// END NEW IMPORTS
+// GLOBAL CONTEXT IMPORT
+import { useAppContext } from '../context/AppProvider'; 
 
 import { Icons } from './icons';
 import { Button } from './Button';
@@ -13,10 +14,14 @@ interface AuthModalProps {
     isOpen: boolean;
     onClose: () => void;
     initialTab: 'login' | 'register';
-    onLoginSuccess: () => void;
+    onLoginSuccess: () => void; // This can now be simplified or removed, as context handles state
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTab, onLoginSuccess }) => {
+    // --- USE GLOBAL CONTEXT HOOK ---
+    const { login: globalLogin, openAuthModal, closeAuthModal } = useAppContext(); 
+    // -------------------------------
+    
     const [activeTab, setActiveTab] = useState<'login' | 'register'>(initialTab);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -68,7 +73,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTa
         setIsLoading(false);
     }
 
-    // --- APPWRITE HANDLE CHECK INTEGRATION ---
     const checkHandle = () => {
         if (handleTimeoutRef.current) clearTimeout(handleTimeoutRef.current);
         if (username.length < 3) { setHandleAvailable(null); return; }
@@ -76,28 +80,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTa
         setIsCheckingHandle(true);
         handleTimeoutRef.current = setTimeout(async () => {
             try {
-                // IMPORTANT: For true uniqueness check, you should use an Appwrite Function 
-                // to query the Users database or check against reserved/taken names.
-                // Here, we simulate by checking for reserved names only.
+                // Simulation Check (replace with Appwrite Function for security)
                 const isAvailable = !['taken', 'admin', 'zapway'].includes(username.toLowerCase());
                 
                 setHandleAvailable(isAvailable); 
             } catch (e) {
                 console.error('Handle check failed:', e);
-                setHandleAvailable(false); // Assume failure or taken
+                setHandleAvailable(false);
             } finally {
                 setIsCheckingHandle(false);
             }
         }, 600);
     };
-    // ----------------------------------------
-
-    // --- APPWRITE SUBMIT INTEGRATION ---
+    
+    // --- APPWRITE SUBMIT EXECUTION ---
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
-        // ------------------ VALIDATION PROTOCOL ------------------
+        // --- VALIDATION PROTOCOL ---
         if (activeTab === 'login') {
             if (!email || !password) { setError('AUTH_ERR: CREDENTIALS MISSING'); return; }
         } else {
@@ -107,39 +108,35 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialTa
             if (!termsAccepted) { setError('AUTH_ERR: AFFIRMATION PROTOCOL REQUIRED'); return; }
             if (handleAvailable === false) { setError('AUTH_ERR: HANDLE UNAVAILABLE'); return; }
         }
-        // ---------------------------------------------------------
+        // ---------------------------
 
         setIsLoading(true);
 
         try {
             if (activeTab === 'login') {
-                // *** APPWRITE LOGIN EXECUTION ***
+                // 1. LOGIN
                 await account.createEmailPasswordSession(email, password);
                 
             } else {
-                // *** APPWRITE REGISTRATION EXECUTION ***
-                
-                // 1. Create the user account (username goes into the 'name' attribute)
+                // 1. REGISTER
                 await account.create(
                     'unique()', 
                     email, 
                     password, 
                     username 
                 );
-
-                // 2. Immediately log in the user after creation
+                // 2. LOG IN immediately after registration
                 await account.createEmailPasswordSession(email, password);
-                
-                // (Future Task: Create User/Points DB entry here)
-
             }
 
-            // --- Success Protocol ---
-            onLoginSuccess();
-            resetForm();
-
+            // --- SUCCESS PROTOCOL: UPDATE GLOBAL STATE ---
+            const user = await account.get(); // Fetch the authenticated user object
+            globalLogin(user); // Send user object to AppProvider
+            closeAuthModal(); // Close the modal via global context function
+            // ---------------------------------------------
+            
         } catch (err) {
-            // --- Failure Protocol ---
+            // --- FAILURE PROTOCOL ---
             if (err instanceof AppwriteException) {
                 const message = err.message.toUpperCase().replace('USER WITH THE REQUESTED ID ALREADY EXISTS.', 'ALIAS OR EMAIL TAKEN');
                 setError(`AUTH_ERR: ${err.type || 'SYSTEM'}: ${message}`);
