@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useContext, useMemo } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserSessionPersistence } from 'firebase/auth';
-import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, setLogLevel } from 'firebase/firestore';
+// Firebase imports removed to fix Rollup error and decouple the application.
+// import { initializeApp } from 'firebase/app';
+// import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserSessionPersistence } from 'firebase/auth';
+// import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, setLogLevel } from 'firebase/firestore'; 
 import { Icons } from '../components/icons';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -12,17 +13,14 @@ import { ToastContext } from '../context/ToastContext';
 declare global {
     interface Window {
         __app_id?: string;
-        __firebase_config?: string;
-        __initial_auth_token?: string;
     }
 }
 
 // --- GLOBAL CONSTANTS ---
 const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
-const firebaseConfig = JSON.parse(typeof window.__firebase_config !== 'undefined' ? window.__firebase_config : '{}');
-const initialAuthToken = typeof window.__initial_auth_token !== 'undefined' ? window.__initial_auth_token : null;
 const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${process.env.API_KEY}`;
+const ANONYMOUS_USER_ID = `anon-${appId.substring(0, 5)}-${Math.random().toString(36).substring(2, 8)}`;
 
 
 // --- TYPES ---
@@ -68,12 +66,21 @@ const STATIC_SUPPORT_HISTORY: Message[] = [
 
 
 // --- UI SUB-COMPONENTS ---
-// FIX: Changed to React.FC to correctly handle `key` prop type passed in loops.
 const CodeBlock: React.FC<{ code: string }> = ({ code }) => {
     const { showToast } = useContext(ToastContext)!;
     const copyCode = () => {
-        navigator.clipboard.writeText(code);
-        showToast("Code block copied to clipboard.", "success");
+        // Use document.execCommand('copy') for better iFrame compatibility
+        try {
+            const tempInput = document.createElement('textarea');
+            tempInput.value = code;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            showToast("Code block copied to clipboard.", "success");
+        } catch (error) {
+            showToast("Failed to copy code.", "error");
+        }
     };
     return (
         <div className="relative my-2 bg-foundation border border-[#333] rounded-lg text-sm font-jetbrains-mono">
@@ -86,13 +93,16 @@ const CodeBlock: React.FC<{ code: string }> = ({ code }) => {
 };
 
 const MarkdownRenderer = ({ content }: { content: string }) => {
+    // Regex to split content by code blocks, preserving the block itself in the array
     const parts = content.split(/(```[\s\S]*?```)/g);
 
     const renderInlines = (text: string) => {
+        // Handle common inline markdown elements
         return text
             .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-white">$1</strong>')
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
             .replace(/`(.*?)`/g, '<code class="bg-foundation-lighter text-neon-surge px-1 py-0.5 rounded text-xs font-jetbrains-mono">$1</code>')
+            // Simple list item rendering (for text parts)
             .replace(/^\s*[-*]\s+(.*)/gm, '<li class="ml-4 list-disc">$1</li>');
     };
 
@@ -100,9 +110,11 @@ const MarkdownRenderer = ({ content }: { content: string }) => {
         <>
             {parts.map((part, index) => {
                 if (part.startsWith('```') && part.endsWith('```')) {
+                    // It's a code block
                     const code = part.slice(3, -3).trim();
                     return <CodeBlock key={index} code={code} />;
                 }
+                // It's regular text, render inline markdown and wrap in a paragraph/div
                 const html = renderInlines(part);
                 return <div key={index} dangerouslySetInnerHTML={{ __html: html }} className="prose-p:my-2" />;
             })}
@@ -110,14 +122,22 @@ const MarkdownRenderer = ({ content }: { content: string }) => {
     );
 };
 
-// FIX: Changed to React.FC to correctly handle `key` prop type passed in loops.
 const ChatMessage: React.FC<{ msg: Message }> = ({ msg }) => {
     const { showToast } = useContext(ToastContext)!;
     const copyMessage = () => {
-        navigator.clipboard.writeText(msg.text);
-        showToast("Message copied.", "success");
+        try {
+            const tempInput = document.createElement('textarea');
+            tempInput.value = msg.text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            showToast("Message copied.", "success");
+        } catch (error) {
+            showToast("Failed to copy message.", "error");
+        }
     };
-    
+
     return (
         <div className={`flex flex-col group ${msg.sender === 'me' ? 'items-end' : 'items-start'}`}>
             <div className={`relative max-w-[85%] p-3 px-4 rounded-xl text-sm animate-fadeIn shadow-lg font-rajdhani flex items-start gap-3
@@ -164,44 +184,34 @@ const MessagesPage = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isLogPanelOpen, setIsLogPanelOpen] = useState(true);
 
-    const [db, setDb] = useState<any>(null);
-    const [userId, setUserId] = useState<string | null>(null);
-    const [isAuthReady, setIsAuthReady] = useState(false);
-    const [saveHistory, setSaveHistory] = useState(true);
-
+    // Simplified user state since Firebase/Auth is removed
+    const userId = ANONYMOUS_USER_ID;
+    const isAuthReady = true; // Assume ready since no external sync is required
     const [notifications, setNotifications] = useState<Notification[]>([]);
+    
+    // Modal state for confirmation dialogs (replacing window.confirm)
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalAction, setModalAction] = useState<(() => void) | null>(null);
     const [modalTitle, setModalTitle] = useState('');
     const [modalBody, setModalBody] = useState('');
 
     const activeContact = MOCK_CONTACTS.find(c => c.id === activeContactId);
-    
+
     const filteredContacts = useMemo(() => 
         MOCK_CONTACTS.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase())),
     [searchTerm]);
 
+    // Function to add system/error notifications
     const addNotification = useCallback((message: string, type: 'system' | 'warning' | 'error' = 'system') => {
         setNotifications(prev => [{ id: Date.now(), message, type, timestamp: new Date().toLocaleTimeString() }, ...prev].slice(0, 20));
     }, []);
 
-    const getZapAgentHistoryRef = useCallback((dbInstance: any, userId: string) => {
-        return doc(dbInstance, `artifacts/${appId}/users/${userId}/chat_history/zap_agent_data`);
-    }, []);
-
+    // Scroll to the latest message whenever history or loading state changes
     useEffect(() => {
-        const initializeFirebase = async () => { /* ... Firebase logic as before ... */ };
-        initializeFirebase();
-    }, [addNotification]);
-    
-    const saveChatHistory = useCallback(async (history: Message[], currentUserId: string, currentDb: any) => { /* ... as before ... */ }, [saveHistory, getZapAgentHistoryRef, activeContactId]);
-    
-    useEffect(() => { /* ... Firestore onSnapshot logic as before ... */ }, [db, isAuthReady, userId, saveHistory, activeContactId, getZapAgentHistoryRef, saveChatHistory, addNotification]);
-    
-    useEffect(() => { /* ... Auto-save trigger logic as before ... */ }, [chatHistory, saveHistory, activeContactId, userId, db, saveChatHistory]);
-
-    useEffect(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        const timer = setTimeout(() => {
+            chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100); // Small delay to ensure DOM update is complete before scrolling
+        return () => clearTimeout(timer);
     }, [chatHistory, isLoading]);
 
     const handleContactSelect = (id: number) => {
@@ -209,30 +219,32 @@ const MessagesPage = () => {
         setMobileView('chat');
         setIsLoading(false);
         setMessageInput('');
+        
+        // Reset chat history based on selected contact
         if (id === 1) setChatHistory(INITIAL_ZAP_AGENT_HISTORY);
         else if (id === 2) setChatHistory(STATIC_SUPPORT_HISTORY);
     };
 
     const handleBackToList = () => setMobileView('list');
-    
+
     const openModal = (title: string, body: string, action: () => void) => {
         setModalTitle(title); setModalBody(body); setModalAction(() => action); setIsModalOpen(true);
     };
-    
+
     const closeModal = () => {
         setIsModalOpen(false); setModalAction(null);
     };
 
     const handleClearChatHistory = () => {
         if (activeContactId !== 1) return;
-        openModal('// CONFIRM: PURGE ZAP AGENT HISTORY', `This action will permanently delete Zap Agent history.`, performClearChatHistory);
+        openModal('// CONFIRM: PURGE ZAP AGENT HISTORY', `This action will permanently delete this session's Zap Agent history.`, performClearChatHistory);
     };
 
-    const performClearChatHistory = async () => {
-        setChatHistory(INITIAL_ZAP_AGENT_HISTORY.slice(0, 1));
-        addNotification('// HISTORY PURGED: Zap Agent session reset.', 'system');
-        if (db && userId && saveHistory) {
-            try { await deleteDoc(getZapAgentHistoryRef(db, userId)); addNotification('// VPR DELETED: Remote history purged.', 'system'); } catch (error) { addNotification('CRITICAL: Failed to delete remote VPR.', 'error'); }
+    const performClearChatHistory = () => {
+        // Only clear history for the Zap Agent contact (id=1)
+        if (activeContactId === 1) {
+            setChatHistory(INITIAL_ZAP_AGENT_HISTORY.slice(0, 1));
+            addNotification('// HISTORY PURGED: Zap Agent session reset.', 'system');
         }
         closeModal();
     };
@@ -246,36 +258,58 @@ const MessagesPage = () => {
         e.preventDefault();
         if (!messageInput.trim() || isLoading || activeContactId !== 1) return;
 
-        const userMessage: Message = { id: Date.now(), sender: 'me', text: messageInput, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+        const userMessage: Message = { 
+            id: Date.now(), 
+            sender: 'me', 
+            text: messageInput, 
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+        };
+        
+        // Use functional state update to ensure the latest state is used
         setChatHistory(prev => [...prev, userMessage]);
+        
         const currentMessage = messageInput;
         setMessageInput('');
         setIsLoading(true);
 
-        const systemPrompt = 'You are Zap Agent, an AI for the ZAP platform. You specialize in crypto gambling intel. Your tone is tactical, concise, and futuristic. You provide high-signal intelligence to help users gain an edge. Use markdown for formatting, especially for code or lists. Address the user as "Operator".';
-        
+        const systemPrompt = 'You are Zap Agent, an AI for the ZAP platform. You specialize in crypto gambling intel and tactical advice. Your tone is tactical, concise, and futuristic. You provide high-signal intelligence to help users gain an edge. Use markdown for formatting, especially for code blocks (using ```) or lists. Address the user as "Operator".';
+
         try {
             const response = await fetch(GEMINI_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: currentMessage }] }], systemInstruction: { parts: [{ text: systemPrompt }] } })
+                body: JSON.stringify({ 
+                    contents: [{ parts: [{ text: currentMessage }] }], 
+                    systemInstruction: { parts: [{ text: systemPrompt }] } 
+                })
             });
 
             if (!response.ok) throw new Error(`API Error: ${response.status}`);
             const result = await response.json();
-            const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "Response decode error.";
+            const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "Response decode error. Check API key and configuration.";
 
-            const aiMessage: Message = { id: Date.now() + 1, sender: 'them', text, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+            const aiMessage: Message = { 
+                id: Date.now() + 1, 
+                sender: 'them', 
+                text, 
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+            };
             setChatHistory(prev => [...prev, aiMessage]);
-        } catch (error) {
-            const errorMessage: Message = { id: Date.now() + 1, sender: 'them', text: `CRITICAL FAILURE: Connection to Grid severed. API call failed.`, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+        } catch (error: any) {
+            console.error("Gemini API Error:", error);
+            const errorMessage: Message = { 
+                id: Date.now() + 1, 
+                sender: 'them', 
+                text: `CRITICAL FAILURE: Connection to Grid severed. API call failed with error: ${error.message}`, 
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+            };
             setChatHistory(prev => [...prev, errorMessage]);
             addNotification(`CRITICAL FAILURE: Agent connection lost.`, 'error');
         } finally {
             setIsLoading(false);
         }
     };
-    
+
     return (
         <div className="container mx-auto max-w-[1600px] h-[calc(100vh-8rem)] flex flex-col font-rajdhani animate-fadeIn">
             <ConfirmationModal isOpen={isModalOpen} title={modalTitle} body={modalBody} onConfirm={() => { if (modalAction) modalAction(); }} onClose={closeModal} />
@@ -285,7 +319,7 @@ const MessagesPage = () => {
                     <Icons.MessageSquare className="h-6 w-6 md:h-8 md:w-8 text-neon-surge" /> SECURE COMM LINK
                 </h1>
                 <p className="text-neon-surge font-jetbrains-mono text-xs md:text-sm uppercase tracking-widest mt-1 ml-9 md:ml-11 text-glow">
-                    // VPR STATUS: {isAuthReady ? 'READY' : 'SYNCING'} // USER ID: {userId ? userId.substring(0, 8) + '...' : 'ANONYMOUS'}
+                    // COMM STATUS: {isAuthReady ? 'READY' : 'ERROR'} // SESSION ID: {userId.substring(0, 8) + '...'}
                 </p>
             </header>
 
@@ -331,12 +365,15 @@ const MessagesPage = () => {
                                     <Icons.Terminal className="h-5 w-5" />
                                 </button>
                             </header>
-
-                            <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-grid"><div className="space-y-6">
-                                {chatHistory.map(msg => <ChatMessage key={msg.id} msg={msg} />)}
-                                {isLoading && <ThinkingBubble />}
-                                <div ref={chatEndRef} />
-                            </div></div>
+                            
+                            {/* Scroll Glitch Fix: Added key={activeContactId} to force remount/clean state on contact switch */}
+                            <div key={activeContactId} className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-grid">
+                                <div className="space-y-6">
+                                    {chatHistory.map(msg => <ChatMessage key={msg.id} msg={msg} />)}
+                                    {isLoading && <ThinkingBubble />}
+                                    <div ref={chatEndRef} />
+                                </div>
+                            </div>
 
                             <footer className="p-4 bg-foundation border-t border-neon-surge/10 shadow-[0_0_15px_rgba(0,0,0,0.5)]">
                                 <form onSubmit={handleSendMessage} className="flex gap-3">
@@ -373,10 +410,6 @@ const MessagesPage = () => {
                         })}
                     </div>
                     <footer className="p-4 border-t border-[#333] space-y-2">
-                         <label className="font-jetbrains-mono text-xs text-neon-surge uppercase flex items-center justify-between gap-2 cursor-pointer">
-                            <span><Icons.Save className="h-4 w-4 inline mr-1" /> VPR HISTORY SAVE</span>
-                            <input type="checkbox" checked={saveHistory} onChange={() => setSaveHistory(p => !p)} disabled={!db} className="accent-neon-surge" />
-                        </label>
                         <Button onClick={handleClearChatHistory} variant="destructive" size="sm" className="w-full text-xs" disabled={activeContactId !== 1}><Icons.Trash className="h-4 w-4 mr-2" /> PURGE AGENT HISTORY</Button>
                     </footer>
                 </aside>
