@@ -18,6 +18,17 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      
+      // --- CRITICAL ADDITION FOR BUILD RESOLUTION ---
+      build: {
+        rollupOptions: {
+          input: {
+            // Explicitly define the main entry point path
+            main: path.resolve(__dirname, 'src/main.tsx'),
+          },
+        },
       }
+      // ----------------------------------------------
     };
 });
