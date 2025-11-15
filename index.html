@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@700;900&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
     <script>
+      // Tailwin.config remains here
       tailwind.config = {
         theme: {
           extend: {
@@ -88,7 +89,7 @@
               },
               bounce: {
                 '0%, 100%': { transform: 'translateY(-5%) scale(1.05)', animationTimingFunction: 'cubic-bezier(0.8, 0, 1, 1)' },
-                '50%': { transform: 'translateY(0) scale(1)', animationTimingFunction: 'cubic-bezier(0, 0, 0.2, 1)' },
+                '50%': { transform: 'translateY(0) scale(1)', animationTiming Function: 'cubic-bezier(0, 0, 0.2, 1)' },
               },
               'pulse-fast': {
                 '0%, 100%': { opacity: 0.7 },
@@ -138,80 +139,48 @@
       }
     </script>
     <style>
-        html {
-            scroll-behavior: smooth;
-        }
+        /* Existing custom styles here */
+        html { scroll-behavior: smooth; }
         body {
             background-color: #0A0A0A;
             font-family: 'Rajdhani', sans-serif;
             color: #FFFFFF;
             overflow-x: hidden;
         }
-        body.modal-open {
-          overflow: hidden;
-        }
+        body.modal-open { overflow: hidden; }
         .font-orbitron { font-family: 'Orbitron', sans-serif; }
         .font-roboto-mono { font-family: 'Roboto Mono', monospace; }
         .font-rajdhani { font-family: 'Rajdhani', sans-serif; }
         .font-jetbrains-mono { font-family: 'JetBrains Mono', monospace; }
-
         .text-glow { text-shadow: 0 0 12px rgba(0, 255, 192, 0.6); }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #141414; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #00FFC0; border-radius: 20px; border: 2px solid #141414; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #88ffed; }
-
-        .card-lift {
-            transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), box-shadow 0.3s cubic-bezier(0.4,0,0.2,1);
-        }
-        .card-lift:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 0 30px rgba(0,255,192,0.25);
-        }
+        .card-lift { transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), box-shadow 0.3s cubic-bezier(0.4,0,0.2,1); }
+        .card-lift:hover { transform: translateY(-8px); box-shadow: 0 0 30px rgba(0,255,192,0.25); }
         .mask-image-lr {
           -webkit-mask-image: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 15%, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%);
           mask-image: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 15%, rgba(0,0,0,1) 85%, rgba(0,0,0,0) 100%);
         }
         .animate-scan-line::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
+          content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
           background: linear-gradient(to bottom, transparent, rgba(0, 255, 192, 0.1) 50%, transparent 100%);
-          animation: scan-line 5s infinite linear;
-          pointer-events: none;
+          animation: scan-line 5s infinite linear; pointer-events: none;
         }
         .zap-logo-text {
             background-image: linear-gradient(90deg, #00FFC0, #88ffed);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            color: transparent;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text; color: transparent;
         }
-        .footer-scan-effect {
-            position: relative;
-            overflow: hidden;
-        }
+        .footer-scan-effect { position: relative; overflow: hidden; }
         .footer-scan-effect::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             pointer-events: none;
             background-image: repeating-linear-gradient(
-                0deg,
-                transparent,
-                transparent 2px,
-                rgba(0, 255, 192, 0.04) 3px,
-                rgba(0, 255, 192, 0.04) 4px
+                0deg, transparent, transparent 2px, rgba(0, 255, 192, 0.04) 3px, rgba(0, 255, 192, 0.04) 4px
             );
-            background-size: 100% 100px;
-            opacity: 0.5;
-            animation: footer-scan-vertical 15s linear infinite;
+            background-size: 100% 100px; opacity: 0.5; animation: footer-scan-vertical 15s linear infinite;
         }
         .bg-grid { 
           background-image: linear-gradient(rgba(0,255,192,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,192,0.05) 1px, transparent 1px); 
@@ -219,51 +188,18 @@
         }
         .text-shadow-neon { text-shadow: 0 0 5px #00FFC0, 0 0 10px #00FFC0; }
 
-        input[type="range"] {
-          -webkit-appearance: none;
-          appearance: none;
-          background: transparent;
-          cursor: pointer;
-        }
-        input[type="range"]::-webkit-slider-runnable-track {
-          background-color: #333;
-          height: 0.35rem;
-          border-radius: 99px;
-        }
-        input[type="range"]::-moz-range-track {
-          background-color: #333;
-          height: 0.35rem;
-          border-radius: 99px;
-        }
+        input[type="range"] { -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer; }
+        input[type="range"]::-webkit-slider-runnable-track { background-color: #333; height: 0.35rem; border-radius: 99px; }
+        input[type="range"]::-moz-range-track { background-color: #333; height: 0.35rem; border-radius: 99px; }
         input[type="range"]::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          appearance: none;
-          margin-top: -6px; /* center thumb */
-          height: 1.25rem;
-          width: 1.25rem;
-          background-color: #00FFC0;
-          border-radius: 9999px;
-          border: 3px solid #0A0A0A;
+          -webkit-appearance: none; appearance: none; margin-top: -6px; height: 1.25rem; width: 1.25rem;
+          background-color: #00FFC0; border-radius: 9999px; border: 3px solid #0A0A0A;
           box-shadow: 0 0 10px rgba(0, 255, 192, 0.8);
         }
     </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
-  <script type="importmap">
-{
-  "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "@google/genai": "https://aistudiocdn.com/google-genai@0.0.0-20240723-145445",
-    "firebase/app": "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js",
-    "firebase/auth": "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js",
-    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js",
-    "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/"
-  }
-}
-</script>
 </head>
   <body>
     <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
