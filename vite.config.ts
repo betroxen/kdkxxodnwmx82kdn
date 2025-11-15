@@ -19,16 +19,16 @@ export default defineConfig(({ mode }) => {
           '@': path.resolve(__dirname, '.'),
         }
       },
-      
-      // --- CRITICAL ADDITION FOR BUILD RESOLUTION ---
+
+      // --- CRITICAL BUILD FIX: SYNCHRONIZED ENTRY PATH ---
       build: {
         rollupOptions: {
           input: {
-            // Explicitly define the main entry point path
-            main: path.resolve(__dirname, 'src/main.tsx'),
+            // FIX: Changed 'src/main.tsx' to 'src/index.tsx' to match your HTML reference.
+            main: path.resolve(__dirname, 'src/index.tsx'), 
           },
         },
       }
-      // ----------------------------------------------
+      // ---------------------------------------------------
     };
 });
