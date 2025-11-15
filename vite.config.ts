@@ -10,27 +10,24 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [react()],
       define: {
-        // Keeping API key definitions clean
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
       },
-      // Note: Removed 'path' import and usage for simpler path resolution
+      // Alias block remains minimal
       resolve: {
-        // Alias simplified to relative path
         alias: {
           '@': './',
         }
       },
 
-      // --- CRITICAL BUILD FIX: DIRECT RELATIVE ENTRY PATH ---
+      // --- FINAL CRITICAL BUILD FIX: EXPLICIT RELATIVE PATH ---
       build: {
         rollupOptions: {
           input: {
-            // FIX: Using simple string path 'src/index.tsx' to bypass container environment pathing issues.
-            main: 'src/index.tsx', 
+            // FIX: Using explicit relative path './src/index.tsx' 
+            main: './src/index.tsx', 
           },
         },
       }
-      // ---------------------------------------------------
     };
 });
