@@ -68,7 +68,7 @@ const SupportPage: React.FC = () => {
         }
 
         setIsLoading(true);
-        
+
         setTimeout(() => {
             setIsLoading(false);
             showToast("SIGNAL TRANSMITTED. Ticket #9432 created.", "success");
@@ -130,7 +130,8 @@ const SupportPage: React.FC = () => {
                             <button key={i} className="p-3 bg-foundation-light border border-[#333] rounded-xl text-left hover:border-neon-surge transition-all group active:scale-[0.98]">
                                 <item.icon className="h-5 w-5 text-text-tertiary group-hover:text-neon-surge mb-2" />
                                 <div className="font-orbitron font-bold text-xs text-white uppercase mb-1">{item.title}</div>
-                                <div className="font-jetbrains-mono text-[10px] text-neon-surge uppercase group-hover:underline">> {item.action}</div>
+                                {/* FIXED: Replaced literal '>' with the HTML entity '&gt;' to resolve JSX parsing error */}
+                                <div className="font-jetbrains-mono text-[10px] text-neon-surge uppercase group-hover:underline">&gt; {item.action}</div>
                             </button>
                         ))}
                     </div>
