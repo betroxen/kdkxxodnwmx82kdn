@@ -21,20 +21,30 @@ export const ProvablyFairModal: React.FC<ProvablyFairModalProps> = ({
     onRotateSeeds
 }) => {
     const [newClientSeed, setNewClientSeed] = useState(clientSeed);
-    const [verifierStatus, setVerifierStatus] = useState<'PENDING' | 'COMPLETE' | 'ERROR'>('PENDING');
+    // Initial status set to COMPLETE to prevent infinite loading state on first render.
+    // In production, this should reflect the state of the first verification call.
+    const [verifierStatus, setVerifierStatus] = useState<'PENDING' | 'COMPLETE' | 'ERROR'>('COMPLETE');
 
+    // Logic to reset state and initiate verification on modal open
     useEffect(() => {
         if (isOpen) {
-            setNewClientSeed(clientSeed); // Reset input on open
-            setVerifierStatus('PENDING');
-            // Mock ZK Verification delay
+            setNewClientSeed(clientSeed); 
+            setVerifierStatus('PENDING'); // Start pending state for current game verification
+
+            // --- PRODUCTION MANDATE: ASYNC VERIFICATION INITIATION ---
+            // Replace this line with the actual async call to your ZK-Proof verifier endpoint.
+            // setVerifierStatus('COMPLETE') should be called inside the promise resolution.
+            // Example: api.verifySeedPair(serverSeedHash, clientSeed, nonce).then(setVerifierStatus);
+            
+            // Temporary set to COMPLETE to avoid infinite load state in UI. REMOVE IN FINAL BUILD.
             const timer = setTimeout(() => {
                 setVerifierStatus('COMPLETE');
-            }, 1500);
+            }, 500);
             return () => clearTimeout(timer);
         }
     }, [isOpen, clientSeed, serverSeedHash, nonce]);
 
+    // Accessibility/UX: Close on ESC key and manage body class
     useEffect(() => {
         const handleEsc = (event: KeyboardEvent) => {
           if (event.key === 'Escape') {
@@ -152,3 +162,4 @@ export const ProvablyFairModal: React.FC<ProvablyFairModalProps> = ({
         </div>
     );
 };
+
