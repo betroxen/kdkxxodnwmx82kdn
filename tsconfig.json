@@ -14,16 +14,20 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
+    /* Alias Configuration - ADDED THIS BLOCK */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"] 
+    },
+
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    
+
     // CRITICAL FIXES FOR ROOT-LEVEL SOURCE FILES (Confirmed in last step)
-    "baseUrl": ".", 
     "rootDir": "."  
   },
   "include": ["**/*.ts", "**/*.tsx"]
-  // REMOVED: "references": [{ "path": "./tsconfig.node.json" }]
 }
