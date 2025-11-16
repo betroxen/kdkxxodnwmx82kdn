@@ -35,6 +35,13 @@ export type Casino = {
     };
 };
 
+// --- CRITICAL PRODUCTION MANDATE ---
+// All 'logo' links are currently served from an external, untrusted host (catbox.moe).
+// You MUST migrate these assets to a controlled CDN (e.g., S3/Cloudfront, Vercel Blob)
+// to ensure high availability and prevent link expiration or service interruption.
+// The links are retained here as requested, but deploy with extreme caution.
+// -----------------------------------
+
 export const casinos: Casino[] = [
     {
         id: 'duel',
