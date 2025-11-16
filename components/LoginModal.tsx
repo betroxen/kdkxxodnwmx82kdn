@@ -11,6 +11,10 @@ const client = new Client()
 
 const account = new Account(client);
 
+// IMPORTANT: This URL must be configured in Appwrite's Console (General Settings).
+// Appwrite redirects here after the user clicks the verification link in the email.
+const VERIFY_REDIRECT_URL = `${window.location.origin}/verify-email`; 
+
 // =====================================================================
 // --- CONTEXT & ROUTING SETUP ---
 // =====================================================================
@@ -26,19 +30,16 @@ const useAuth = () => useContext(AuthContext);
 
 // Mock utility functions for the AuthModal to interface with the global context
 const useAppContext = () => {
-    const { user, login } = useAuth(); // Global login function
+    const { user } = useAuth(); // Global login function
     const { navigate } = useRouter(); // Global navigation
 
     const localLogin = (userData) => {
-        // Since the login function in AuthProvider already handles fetching user and navigating,
-        // we just need a way to close the modal and confirm success here.
-        // The modal is controlled by a state in LoginScreen.
-        // We'll rely on the AuthProvider to handle state updates and redirection.
-        navigate('/dashboard'); // Immediate redirect after successful context update
+        // Since the login function in AuthProvider handles context update and navigation,
+        // we just need a confirmation wrapper here.
+        navigate('/dashboard'); 
     };
 
     return {
-        // The AuthModal will call the global login/register/logout functions from AuthContext
         globalLogin: localLogin, 
         // This function will be provided by the LoginScreen component controlling the modal
         closeAuthModal: () => console.log("Placeholder: closeAuthModal"), 
@@ -46,7 +47,7 @@ const useAppContext = () => {
 };
 
 // =====================================================================
-// --- UI COMPONENTS & MOCKS (from user prompt) ---
+// --- UI COMPONENTS & MOCKS ---
 // =====================================================================
 
 // Mock Icons
@@ -57,6 +58,7 @@ const Icons = {
     Lock: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
     Check: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>,
     AlertTriangle: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.8 18.01A2 2 0 0 0 3.56 21h16.88a2 2 0 0 0 1.76-3.86L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>,
+    Shield: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
 };
 
 const Input = ({ className, onChange, as, ...props }) => {
@@ -107,18 +109,19 @@ const AuthProvider = ({ children }) => {
     const isAuthenticated = !!user;
 
     // 1. Check for persistent session on mount
+    const fetchUser = async () => {
+        try {
+            // Appwrite's get() attempts to restore the session from cookies/storage
+            const currentUser = await account.get();
+            setUser(currentUser);
+        } catch (error) {
+            setUser(null);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchUser = async () => {
-            try {
-                // Appwrite's get() attempts to restore the session from cookies/storage
-                const currentUser = await account.get();
-                setUser(currentUser);
-            } catch (error) {
-                setUser(null);
-            } finally {
-                setIsLoading(false);
-            }
-        };
         fetchUser();
     }, []);
 
@@ -137,15 +140,21 @@ const AuthProvider = ({ children }) => {
 
     const register = async (email, password, name) => {
         try {
-            // Create user
-            await account.create(
+            // 1. Create user
+            const newUser = await account.create(
                 ID.unique(),
                 email,
                 password,
                 name
             );
-            // Log in immediately after successful registration
+
+            // 2. Trigger email verification AFTER user is created
+            // IMPORTANT: The redirect URL must be configured in Appwrite Console
+            await account.createVerification(VERIFY_REDIRECT_URL); 
+
+            // 3. Log in immediately after successful registration
             await login(email, password);
+
         } catch (error) {
             console.error('Registration Failed:', error);
             throw error;
@@ -169,7 +178,9 @@ const AuthProvider = ({ children }) => {
         isLoading,
         login,
         register,
-        logout
+        logout,
+        // Expose account for verification handler
+        account
     }), [user, isAuthenticated, isLoading]);
 
     return (
@@ -186,7 +197,7 @@ const AuthProvider = ({ children }) => {
 const ProtectedRoute = ({ children }) => {
     const { isAuthenticated, isLoading } = useAuth();
     const { navigate } = useRouter();
-    
+
     if (isLoading) {
         return <LoadingSpinner message="Authenticating Session..." />;
     }
@@ -226,7 +237,7 @@ const AuthModal = ({ isOpen, onClose, initialTab }) => {
     const [passwordStrength, setPasswordStrength] = useState(0);
     const [handleAvailable, setHandleAvailable] = useState(true); // Assuming available until checked
     const [isCheckingHandle, setIsCheckingHandle] = useState(false);
-    
+
     // --- Utility Functions ---
 
     const calculatePasswordStrength = useMemo(() => {
@@ -281,8 +292,6 @@ const AuthModal = ({ isOpen, onClose, initialTab }) => {
         }
     };
 
-    // NOTE: Real-world username availability should be checked via a dedicated Appwrite Function.
-    // For this immersive, we skip the live check and rely on Appwrite's 'create' error to catch duplicates.
     const checkHandle = () => {
         if (username.length < 3) {
             setError('');
@@ -323,7 +332,9 @@ const AuthModal = ({ isOpen, onClose, initialTab }) => {
                 await globalRegisterFn(email, password, username);
             }
 
-            closeAuthModal(); // Closes modal if successful (via LoginScreen context)
+            // For registration, we only close the modal after success, 
+            // but the user is already logged in (pending verification) and redirected to /dashboard.
+            closeAuthModal(); 
 
         } catch (err) {
             // --- REAL FAILURE PROTOCOL ---
@@ -376,14 +387,29 @@ const AuthModal = ({ isOpen, onClose, initialTab }) => {
                     </p>
                 </div>
 
+                <div className="flex border-b border-[#333] sticky top-0 bg-foundation z-10">
+                    <button
+                        className={`flex-1 py-3 font-orbitron text-xs uppercase tracking-widest transition-colors ${activeTab === 'login' ? 'text-neon-surge border-b-2 border-neon-surge' : 'text-text-secondary hover:text-white'}`}
+                        onClick={() => { setActiveTab('login'); resetForm(); }}
+                    >
+                        Login
+                    </button>
+                    <button
+                        className={`flex-1 py-3 font-orbitron text-xs uppercase tracking-widest transition-colors ${activeTab === 'register' ? 'text-neon-surge border-b-2 border-neon-surge' : 'text-text-secondary hover:text-white'}`}
+                        onClick={() => { setActiveTab('register'); resetForm(); }}
+                    >
+                        Register
+                    </button>
+                </div>
+
                 <div className="p-6 pt-5 overflow-y-auto custom-scrollbar flex-1 bg-foundation-light">
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        
+
                         {activeTab === 'register' && (
                             <div className="space-y-1">
                                 <div className="flex justify-between items-center">
                                     <label className="text-xs font-jetbrains-mono text-text-secondary uppercase ml-1">Alias (Handle)</label>
-                                    {!isCheckingHandle && handleAvailable !== null && username.length > 0 && (
+                                    {!isCheckingHandle && username.length > 0 && (
                                         <span className={`text-xs font-jetbrains-mono uppercase ${handleAvailable ? 'text-neon-surge text-glow' : 'text-warning-high'}`}>
                                             {handleAvailable ? '// FORMAT OK' : '// FORMAT ERROR'}
                                         </span>
@@ -435,7 +461,7 @@ const AuthModal = ({ isOpen, onClose, initialTab }) => {
                                 />
                             </div>
                         </div>
-                        
+
                         {activeTab === 'register' && (
                             <div className="space-y-1">
                                 <label className="text-xs font-jetbrains-mono text-text-secondary uppercase ml-1">Confirm Passkey</label>
@@ -465,7 +491,8 @@ const AuthModal = ({ isOpen, onClose, initialTab }) => {
                                     onChange={(e) => setTermsAccepted(e.target.checked)}
                                     className="h-4 w-4 text-neon-surge bg-foundation-light border-neon-surge rounded focus:ring-neon-surge cursor-pointer"
                                     disabled={isLoading}
-                                    style={{ appearance: 'none', WebkitAppearance: 'none', border: '1px solid var(--color-neon-surge)', backgroundColor: 'var(--color-foundation-light)', transition: 'background-color 0.2s' }}
+                                    // Custom styling for the checkbox look
+                                    style={{ appearance: 'none', WebkitAppearance: 'none', border: '1px solid var(--color-neon-surge)', backgroundColor: 'var(--color-foundation-light)', transition: 'background-color 0.2s', backgroundImage: termsAccepted ? 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2300FFC0\' stroke-width=\'3\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpath d=\'M20 6 9 17l-5-5\'/%3E%3C/svg%3E")' : 'none', backgroundSize: '70%', backgroundPosition: 'center', backgroundRepeat: 'no-repeat'}}
                                 />
                                 <label htmlFor="terms-check" className="text-xs font-jetbrains-mono text-text-secondary select-none">
                                     I affirm compatibility with the <span className="text-neon-surge hover:underline cursor-pointer">ZAPCORE Protocol Terms</span>.
@@ -509,7 +536,7 @@ const AuthModal = ({ isOpen, onClose, initialTab }) => {
                     </button>
                 </div>
             </div>
-            
+
             <style jsx="true">{`
                 @keyframes modal-enter {
                     from { opacity: 0; transform: scale(0.95); }
@@ -526,7 +553,7 @@ const AuthModal = ({ isOpen, onClose, initialTab }) => {
 };
 
 // =====================================================================
-// --- 5. PAGE COMPONENTS (DASHBOARD & LOGIN) ---
+// --- 5. PAGE COMPONENTS (DASHBOARD, LOGIN, & VERIFICATION) ---
 // =====================================================================
 
 const LoadingSpinner = ({ message }) => (
@@ -541,6 +568,7 @@ const LoadingSpinner = ({ message }) => (
 
 const Dashboard = () => {
     const { user, logout } = useAuth();
+    const isVerified = user?.emailVerification || false;
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-foundation p-4">
@@ -548,12 +576,26 @@ const Dashboard = () => {
                 <h1 className="text-3xl font-orbitron font-extrabold text-neon-surge mb-6 text-center text-glow uppercase tracking-widest">
                     DATACENTER ACCESS
                 </h1>
+                
+                {!isVerified && (
+                    <div className="p-4 mb-6 bg-warning-high/10 border border-warning-high rounded-lg font-jetbrains-mono text-sm text-warning-high flex items-center gap-3">
+                        <Icons.AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                        <span className="font-semibold">SECURITY ALERT: EMAIL UNVERIFIED.</span>
+                    </div>
+                )}
+
                 <p className="text-lg text-white mb-2 font-jetbrains-mono">
                     Status: <span className="font-semibold text-neon-surge">{user?.name || 'Operator'} Logged In.</span>
                 </p>
                 <div className="bg-gray-700 p-4 rounded-xl text-sm text-gray-300 break-all mb-8 font-jetbrains-mono space-y-2">
                     <p><span className="font-bold text-gray-200">ID:</span> {user?.$id || 'N/A'}</p>
                     <p><span className="font-bold text-gray-200">EMAIL:</span> {user?.email || 'N/A'}</p>
+                    <p className="flex items-center gap-2"><span className="font-bold text-gray-200">VERIFICATION:</span> 
+                        {isVerified 
+                            ? <span className="text-neon-surge flex items-center gap-1"><Icons.Shield className="h-4 w-4" /> SECURE</span>
+                            : <span className="text-warning-high flex items-center gap-1"><Icons.AlertTriangle className="h-4 w-4" /> PENDING</span>
+                        }
+                    </p>
                     <p className="text-xs text-text-tertiary mt-2">// ROUTE PROTECTION CONFIRMED</p>
                 </div>
                 <Button onClick={logout} size="lg" variant="primary">
@@ -586,7 +628,7 @@ const LoginScreen = () => {
         setInitialTab(tab);
         setIsModalOpen(true);
     }
-    
+
     // Provide a close function for the modal to use
     const modalContextValue = useMemo(() => ({
         // This is a mock provided to satisfy the AuthModal component's call to useAppContext
@@ -604,7 +646,7 @@ const LoginScreen = () => {
                 <p className="text-sm font-jetbrains-mono text-text-secondary mb-10">
                     ACCESS TO DATACENTER REQUIRES AUTHENTICATION.
                 </p>
-                
+
                 <div className="space-y-4">
                     <Button onClick={() => openModal('login')} size="lg" variant="primary">
                         OPERATOR LOGIN
@@ -614,7 +656,7 @@ const LoginScreen = () => {
                     </Button>
                 </div>
             </div>
-            
+
             <AuthContext.Provider value={useAuth()}> {/* Pass the real Auth context */}
                 <RouterContext.Provider value={{ navigate }}> {/* Pass the router */}
                     <div style={{ visibility: isModalOpen ? 'visible' : 'hidden' }}>
@@ -626,11 +668,95 @@ const LoginScreen = () => {
                     </div>
                 </RouterContext.Provider>
             </AuthContext.Provider>
-            
-            <style jsx="true">{`
-                /* Ensure AuthModal uses its local context provider for closing */
-                .fixed.inset-0.z-\\[100\\] { visibility: ${isModalOpen ? 'visible' : 'hidden'}; }
-            `}</style>
+        </div>
+    );
+};
+
+const EmailVerificationHandler = () => {
+    const { account, user, isAuthenticated, isLoading } = useAuth();
+    const { navigate } = useRouter();
+
+    const [status, setStatus] = useState<'loading' | 'success' | 'failure'>('loading');
+    const [message, setMessage] = useState('INITIATING VERIFICATION PROTOCOL...');
+
+    useEffect(() => {
+        // Only run if account is available (AuthContext is loaded)
+        if (!account) return;
+
+        // Function to extract URL params (userId and secret)
+        const verifySession = async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const userId = urlParams.get('userId');
+            const secret = urlParams.get('secret');
+
+            if (!userId || !secret) {
+                setStatus('failure');
+                setMessage('VERIFICATION FAILED: MISSING PROTOCOL KEYS (USERID/SECRET).');
+                return;
+            }
+
+            try {
+                // Call Appwrite to update verification status
+                await account.updateVerification(userId, secret);
+                
+                setStatus('success');
+                setMessage('VERIFICATION COMPLETE. DATASTREAM SECURED.');
+
+                // Force a quick session refresh to update the user object's emailVerification status
+                await account.get(); 
+
+                // Redirect to dashboard after 3 seconds
+                setTimeout(() => {
+                    navigate('/dashboard');
+                }, 3000);
+
+            } catch (error: any) {
+                let errMessage = error.message || 'UNKNOWN VERIFICATION ERROR.';
+                if (errMessage.includes('Invalid key')) {
+                    errMessage = 'VERIFICATION KEY EXPIRED OR INVALID.';
+                }
+                setStatus('failure');
+                setMessage(`VERIFICATION FAILED: ${errMessage.toUpperCase()}`);
+            }
+        };
+
+        verifySession();
+    }, [account, navigate]);
+
+
+    const statusClasses = {
+        loading: 'text-neon-surge animate-pulse border-neon-surge',
+        success: 'text-neon-surge border-neon-surge shadow-neon-card-hover',
+        failure: 'text-warning-high border-warning-high shadow-[0_0_20px_rgba(248,113,121,0.5)]',
+    };
+    
+    const icon = {
+        loading: <Icons.AlertTriangle className="h-6 w-6 animate-spin" />,
+        success: <Icons.Shield className="h-8 w-8" />,
+        failure: <Icons.AlertTriangle className="h-8 w-8" />,
+    };
+
+    return (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-foundation p-4">
+            <div className={`w-full max-w-md bg-gray-800 p-8 rounded-2xl shadow-xl border-2 ${statusClasses[status]}`}>
+                <div className="flex flex-col items-center text-center">
+                    <div className="mb-6">{icon[status]}</div>
+                    <h1 className="text-2xl font-orbitron font-extrabold text-white mb-3 tracking-wider">
+                        EMAIL VERIFICATION
+                    </h1>
+                    <p className={`text-sm font-jetbrains-mono ${statusClasses[status]}`}>
+                        {message}
+                    </p>
+                    {status === 'success' && (
+                        <p className="mt-4 text-xs font-jetbrains-mono text-text-secondary">// REDIRECTING TO DASHBOARD...</p>
+                    )}
+                    {status === 'failure' && (
+                         <Button onClick={() => navigate('/login')} size="md" variant="primary" className="mt-6 bg-warning-high hover:bg-red-700">
+                            RE-INITIATE LOGIN
+                        </Button>
+                    )}
+                </div>
+            </div>
         </div>
     );
 };
@@ -655,40 +781,49 @@ const AppRouter = () => {
         window.addEventListener('popstate', handlePopState);
         return () => window.removeEventListener('popstate', handlePopState);
     }, []);
-    
+
     // Initial path check on load
     useEffect(() => {
-        // Ensure path starts clean
-        const cleanPath = window.location.pathname.endsWith('/') && window.location.pathname.length > 1 
-            ? window.location.pathname.slice(0, -1) 
-            : window.location.pathname;
-        if (cleanPath === '/') {
-            navigate('/login');
+        // Handle URL parameters for verification on load
+        const fullPath = window.location.pathname + window.location.search;
+        if (fullPath.startsWith('/verify-email')) {
+            setPath(fullPath);
         } else {
-            setPath(cleanPath);
+            // Ensure path starts clean
+            const cleanPath = window.location.pathname.endsWith('/') && window.location.pathname.length > 1 
+                ? window.location.pathname.slice(0, -1) 
+                : window.location.pathname;
+            if (cleanPath === '/') {
+                navigate('/login');
+            } else {
+                setPath(cleanPath);
+            }
         }
     }, []);
 
     // Provide the navigator to children
     const routerValue = useMemo(() => ({ path, navigate }), [path, navigate]);
 
-    let content;
-    
+    // Parse the path to check for verification route while preserving query params
+    const basePath = path.split('?')[0];
+
     // Use the AuthProvider wrapper to give context to all routes
     const RoutedContent = () => {
-        if (path === '/dashboard') {
+        if (basePath === '/dashboard') {
             return (
                 <ProtectedRoute>
                     <Dashboard />
                 </ProtectedRoute>
             );
-        } else if (path === '/login' || path === '/') {
+        } else if (basePath === '/verify-email') {
+            return <EmailVerificationHandler />;
+        } else if (basePath === '/login' || basePath === '/') {
             return <LoginScreen />;
         } else {
             return <LoginScreen />; // Fallback to login
         }
     }
-    
+
     return (
         <RouterContext.Provider value={routerValue}>
             <AuthProvider>
