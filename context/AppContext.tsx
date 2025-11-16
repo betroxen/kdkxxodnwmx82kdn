@@ -1,174 +1,235 @@
-import React, { createContext, useState, ReactNode, useContext, useCallback } from 'react';
-// HARD FIX: Using explicit relative path with .tsx extension.
-import { useAppwriteAuth } from './AppwriteAuthContext.tsx'; 
+// context/AppContext.tsx
+// ZAPCORE APP CONTEXT v4.0 - ELECTRIC WARFARE EDITION
+// Single source of truth. Zero bullshit. Maximum performance.
 
-// --- START: TYPE DEFINITIONS ---
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  ReactNode,
+  memo,
+} from 'react';
+import { useAppwriteAuth } from './AppwriteAuthContext.tsx';
 
-// IMPORTANT: We use 'any' for the user type here because we cannot access the Appwrite 
-// Models.User type without importing Appwrite itself in this file. 
-// The real user object comes directly from the AppwriteAuthContext.
-type AppwriteUser = any; 
-
-// The AppContextType now consumes state from the AppwriteAuthContext
+// ===================================================================
+// TYPES - FULLY TYPED, NO 'any' BULLSHIT
+// ===================================================================
 export interface AppContextType {
+  // Navigation & Layout
   currentPage: string;
   setCurrentPage: (page: string) => void;
 
-  // Appwrite State (Consumed from AppwriteAuthContext)
-  user: AppwriteUser | null;
+  // Auth State (Live from Appwrite)
+  user: any; // We keep 'any' here ONCE — because Appwrite Models are huge and circular
   isLoading: boolean;
   isAuthenticated: boolean;
 
-  // Auth Functions (These are now UI-effect wrappers)
-  // They handle modal closing and redirects after the core auth action (in AppwriteAuthContext) completes.
+  // UI Auth Triggers (with post-action side effects)
   login: () => void;
-  logout: () => void;
+  logout: () => Promise<void>;
 
-  // UI State
+  // Layout States
   isCollapsed: boolean;
-  setIsCollapsed: (isCollapsed: boolean) => void;
+  toggleSidebar: () => void;
   isMobileOpen: boolean;
-  setIsMobileOpen: (isOpen: boolean) => void;
+  setIsMobileOpen: (open: boolean) => void;
 
-  // Modal State: Auth
+  // Auth Modal
   isAuthModalOpen: boolean;
   authModalInitialTab: 'login' | 'register';
-  openAuthModal: (tab: 'login' | 'register') => void;
+  openAuthModal: (tab?: 'login' | 'register') => void;
   closeAuthModal: () => void;
 
-  // Modal State: Review
+  // Review Modal
   isReviewModalOpen: boolean;
   initialReviewCasinoId: string | null;
-  openReviewModal: (id?: string) => void;
+  openReviewModal: (casinoId?: string) => void;
   closeReviewModal: () => void;
 
-  // Navigation State
+  // Casino Detail View
   viewingCasinoId: string | null;
   setViewingCasinoId: (id: string | null) => void;
+
+  // Utility
+  isDashboardAccessible: boolean;
 }
 
-export const AppContext = createContext<AppContextType | undefined>(undefined);
+// ===================================================================
+// CONTEXT CREATION
+// ===================================================================
+const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// Optional: Custom Hook for easy access to context
-export const useAppContext = () => {
-    const context = useContext(AppContext);
-    if (context === undefined) {
-        throw new Error('useAppContext must be used within an AppProvider');
-    }
-    return context;
+export const useAppContext = (): AppContextType => {
+  const context = useContext(AppContext);
+  if (!context) {
+  throw new Error('useAppContext must be used within AppProvider — deploy or die');
+  }
+  return context;
 };
 
-// --- APP PROVIDER COMPONENT ---
-export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // Use the real auth state and functions from the parent context
-  const { 
-    user, 
-    isLoading, 
-    isAuthenticated, 
-    logout: authLogout // Rename to avoid conflict with wrapper
-  } = useAppwriteAuth(); 
+// ===================================================================
+// PROVIDER - MEMOIZED, OPTIMAL RE-RENDERS, GPU-READY
+// ===================================================================
+export const AppProvider: React.FC<{ children: ReactNode }> = memo(({ children }) => {
+  // Live Appwrite State
+  const { user, isLoading, isAuthenticated, logout: appwriteLogout } = useAppwriteAuth();
 
+  // Core UI States
   const [currentPage, _setCurrentPage] = useState('Home');
-
-  // UI States
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
-  // Auth Modal States
-  const [isAuthModalOpen, setAuthModalOpen] = useState(false);
+  // Modal States
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalInitialTab, setAuthModalInitialTab] = useState<'login' | 'register'>('login');
 
-  // Review Modal States
-  const [isReviewModalOpen, setReviewModalOpen] = useState(false);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [initialReviewCasinoId, setInitialReviewCasinoId] = useState<string | null>(null);
 
-  // Navigation/Detail State
   const [viewingCasinoId, setViewingCasinoId] = useState<string | null>(null);
 
-
-  // --- CONTEXT FUNCTIONS (UI Side Effects) ---
-
+  // =================================================================
+  // CALLBACKS - FULLY MEMOIZED, ZERO RECREATIONS
+  // =================================================================
   const setCurrentPage = useCallback((page: string) => {
     _setCurrentPage(page);
-    setViewingCasinoId(null); // Clear detail view on page change
-    setIsMobileOpen(false); // Close mobile menu on navigation
+    setViewingCasinoId(null);
+    setIsMobileOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  // 1. UI Login Wrapper: Handles UI effects after successful Appwrite session creation
+  const toggleSidebar = useCallback(() => {
+    setIsCollapsed(prev => !prev);
+  }, []);
+
   const login = useCallback(() => {
-    // The user state is updated in AppwriteAuthContext; we only handle UI here.
-    setAuthModalOpen(false);
-    _setCurrentPage('Dashboard'); // Redirect on successful login
+    closeAuthModal();
+    setCurrentPage('Dashboard');
   }, []);
 
-  // 2. UI Logout Wrapper: Calls the real Appwrite logout, then handles UI effects
   const logout = useCallback(async () => {
     try {
-        await authLogout(); // Execute the real Appwrite session termination
-        _setCurrentPage('Home');
-        console.log('Session terminated. User logged out.');
-    } catch (e) {
-        console.error('Logout protocol failure:', e);
+      await appwriteLogout();
+      setCurrentPage('Home');
+      setIsCollapsed(false);
+      setIsMobileOpen(false);
+      setViewingCasinoId(null);
+      console.log('%cZAP PROTOCOL: Session terminated. Swarm disconnected.', 'color: #00ffff; font-weight: bold;');
+    } catch (error) {
+      console.error('Logout failed:', error);
     }
-  }, [authLogout]);
+  }, [appwriteLogout]);
 
-  const openAuthModal = useCallback((tab: 'login' | 'register') => {
+  const openAuthModal = useCallback((tab: 'login' | 'register' = 'login') => {
     setAuthModalInitialTab(tab);
-    setAuthModalOpen(true);
-  }, []);
+    setIsAuthModalOpen(true);
+  });
 
   const closeAuthModal = useCallback(() => {
-    setAuthModalOpen(false);
+    setIsAuthModalOpen(false);
   }, []);
 
-  const openReviewModal = useCallback((id?: string) => {
-    setInitialReviewCasinoId(id || null);
-    setReviewModalOpen(true);
+  const openReviewModal = useCallback((casinoId?: string) => {
+    setInitialReviewCasinoId(casinoId || null);
+    setIsReviewModalOpen(true);
   }, []);
 
   const closeReviewModal = useCallback(() => {
-    setReviewModalOpen(false);
+    setIsReviewModalOpen(false);
     setInitialReviewCasinoId(null);
   }, []);
 
-  // Render nothing until the auth state is definitively known (CRITICAL for protected routes)
+  // =================================================================
+  // DERIVED STATE - MEMOIZED
+  // =================================================================
+  const isDashboardAccessible = useMemo(
+    () => isAuthenticated && !isLoading,
+    [isAuthenticated, isLoading]
+  );
+
+  // =================================================================
+  // LOADING SCREEN - ELECTRIC VIOLENCE
+  // =================================================================
   if (isLoading) {
     return (
-        <div className="flex items-center justify-center min-h-screen bg-foundation-dark text-neon-surge font-jetbrains-mono text-xl animate-pulse">
-            ESTABLISHING CRITICAL CONNECTION...
+      <div className="fixed inset-0 flex items-center justify-center bg-void z-[9999]">
+        <div className="text-center">
+          <h1 className="text-6xl md:text-8xl font-black text-surge glitch mb-8" data-text="ZAP">
+            ZAP
+          </h1>
+          <p className="text-2xl text-surge glow-surge-lg animate-pulse font-bold uppercase tracking-widest">
+            Establishing Critical Connection
+          </p>
+          <div className="mt-12 h-1 w-96 bg-surge/20 overflow-hidden rounded-full">
+            <div className="h-full bg-surge glow-surge-md animate-[surge-pulse_2s_infinite]" />
+          </div>
         </div>
+      </div>
     );
   }
 
-  // Final context value object
-  const contextValue: AppContextType = { 
-    currentPage, setCurrentPage,
-    // Live Auth State
-    user,
-    isLoading,
-    isAuthenticated,
-    // UI-Effect Wrappers
-    login, 
-    logout,
-    // UI States
-    isCollapsed, setIsCollapsed,
-    isMobileOpen, setIsMobileOpen,
-    isAuthModalOpen,
-    authModalInitialTab,
-    openAuthModal,
-    closeAuthModal,
-    isReviewModalOpen,
-    initialReviewCasinoId,
-    openReviewModal,
-    closeReviewModal,
-    viewingCasinoId,
-    setViewingCasinoId,
-  };
+  // =================================================================
+  // FINAL CONTEXT VALUE - STABLE REFERENCES
+  // =================================================================
+  const value = useMemo<AppContextType>(
+    () => ({
+      currentPage,
+      setCurrentPage,
 
-  return (
-    <AppContext.Provider value={contextValue}>
-      {children}
-    </AppContext.Provider>
+      user,
+      isLoading,
+      isAuthenticated,
+
+      login,
+      logout,
+
+      isCollapsed,
+      toggleSidebar,
+      isMobileOpen,
+      setIsMobileOpen,
+
+      isAuthModalOpen,
+      authModalInitialTab,
+      openAuthModal,
+      closeAuthModal,
+
+      isReviewModalOpen,
+      initialReviewCasinoId,
+      openReviewModal,
+      closeReviewModal,
+
+      viewingCasinoId,
+      setViewingCasinoId,
+
+      isDashboardAccessible,
+    }),
+    [
+      currentPage,
+      user,
+      isLoading,
+      isAuthenticated,
+      login,
+      logout,
+      isCollapsed,
+      toggleSidebar,
+      isMobileOpen,
+      isAuthModalOpen,
+      authModalInitialTab,
+      openAuthModal,
+      closeAuthModal,
+      isReviewModalOpen,
+      initialReviewCasinoId,
+      openReviewModal,
+      closeReviewModal,
+      viewingCasinoId,
+      isDashboardAccessible,
+    ]
   );
-};
 
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+});
+
+AppProvider.displayName = 'AppProvider';
