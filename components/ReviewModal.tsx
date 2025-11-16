@@ -1,10 +1,81 @@
-import React, { useState, useMemo, useEffect, useContext } from 'react';
-import { AppContext } from '../context/AppContext';
-import { casinos } from '../constants/casinos';
-import { Icons } from './icons';
-import { Button } from './Button';
-import { Input } from './Input';
-import { ToastContext } from '../context/ToastContext';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+
+// --- START: SINGLE-FILE COMPONENT DEPENDENCIES (MOCKS & DEFINITIONS) ---
+
+// 1. Mock Icons (Using lucide-react equivalents)
+const Icons = {
+    // Utility
+    X: (props: React.SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>),
+    ChevronLeft: (props: React.SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>),
+    ChevronRight: (props: React.SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>),
+    Search: (props: React.SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>),
+    CheckCircle: (props: React.SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>),
+    Zap: (props: React.SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>),
+    Database: (props: React.SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>),
+
+    // Category Icons
+    dollarSign: (props: React.SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>),
+    LifeBuoy: (props: React.SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M10 16.5l4-1.5 2.5-4-4 1.5z"/><circle cx="12" cy="12" r="2"/></svg>),
+    Scale: (props: React.SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 16.5L13 19 10 16.5"/><path d="M12 21V19"/><path d="M12 3c-4.42 0-8 3.58-8 8v2h16v-2c0-4.42-3.58-8-8-8z"/><path d="M3 15h18"/></svg>),
+    LayoutGrid: (props: React.SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="12" y1="3" x2="12" y2="21"/></svg>),
+    Clock: (props: React.SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>),
+    AlertTriangle: (props: React.SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>),
+    Lock: (props: React.SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>),
+};
+
+// 2. Mock Casino Data
+const casinos = [
+    { id: 'neon_city', name: 'Neon City Bets', logo: 'https://placehold.co/40x40/00FFC0/000?text=NCB', rating: 4.5 },
+    { id: 'crypto_vault', name: 'Crypto Vault', logo: 'https://placehold.co/40x40/FF00FF/000?text=CV', rating: 4.8 },
+    { id: 'dark_sector', name: 'Dark Sector Gaming', logo: 'https://placehold.co/40x40/000000/FFF?text=DSG', rating: 3.2 },
+    { id: 'zap_protocol', name: 'ZAP Protocol Gaming', logo: 'https://placehold.co/40x40/FF7A00/000?text=ZPG', rating: 4.1 },
+];
+
+// 3. Mock Button Component
+const Button: React.FC<any> = ({ children, className, onClick, variant, disabled, type="button" }) => {
+    const baseStyle = "font-bold rounded-lg transition-all duration-300 active:scale-[0.98] disabled:opacity-50 font-orbitron uppercase tracking-wider h-10 flex items-center justify-center";
+    let colorStyle = 'bg-neon-surge text-black hover:bg-neon-surge/80 shadow-[0_0_10px_rgba(0,255,192,0.3)]';
+
+    if (variant === 'ghost') {
+        colorStyle = 'bg-transparent text-text-tertiary hover:text-white hover:bg-[#333]/50 border border-transparent';
+    }
+
+    return (
+        <button
+            type={type}
+            className={`${baseStyle} px-4 text-sm ${colorStyle} ${className}`}
+            onClick={onClick}
+            disabled={disabled}
+        >
+            {children}
+        </button>
+    );
+};
+
+// 4. Mock Input Component
+const Input: React.FC<any> = ({ as, children, className, ...props }) => {
+    const baseStyle = "w-full p-3 rounded-lg bg-[#0c0c0e] border border-[#3a3846] text-white focus:border-neon-surge focus:ring-1 focus:ring-neon-surge transition-all placeholder:text-text-tertiary/50 disabled:opacity-50";
+
+    if (as === 'textarea') {
+        return <textarea className={`${baseStyle} ${className}`} {...props}>{children}</textarea>;
+    }
+    if (as === 'select') {
+        return <select className={`${baseStyle} appearance-none ${className}`} {...props}>{children}</select>;
+    }
+
+    return <input className={`${baseStyle} ${className}`} {...props} />;
+};
+
+// 5. Mock Contexts
+const ToastContext = React.createContext<{ showToast: (message: string, type: 'success' | 'error') => void } | undefined>(undefined);
+const AppContext = React.createContext<any | undefined>(undefined);
+
+// Define a simple mock hook for Toast
+const useToast = () => React.useContext(ToastContext) || {
+    showToast: (message: string, type: 'success' | 'error') => console.log(`[Toast Mock ${type.toUpperCase()}]: ${message}`)
+};
+
+// --- END: SINGLE-FILE COMPONENT DEPENDENCIES ---
 
 // VPR Protocol Steps & Configuration
 const STEPS = ['TARGET', 'SIGNAL', 'DATA', 'EVIDENCE', 'TRANSMIT'];
@@ -28,15 +99,19 @@ interface ReviewModalProps {
     initialCasinoId: string | null;
 }
 
+/**
+ * Multi-step Verified Protocol Report (VPR) submission modal.
+ * Includes form state management, validation, and a dynamic rating component.
+ */
 export const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, initialCasinoId }) => {
-    const { showToast } = useContext(ToastContext) || { showToast: () => {} };
+    const { showToast } = useToast();
 
     const [currentStep, setCurrentStep] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
 
     const [formData, setFormData] = useState({
         targetOperator: initialCasinoId || '',
-        incidentDate: '',
+        incidentDate: new Date().toISOString().split('T')[0],
         category: 'PAYOUT',
         priority: 'STANDARD',
         ratingPayout: 0,
@@ -49,43 +124,54 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, initi
         attestTerms: false
     });
 
+    // Reset state on open/close and handle initial ID
     useEffect(() => {
+        const handleEsc = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', handleEsc);
+
         if (isOpen) {
-            document.body.classList.add('modal-open');
-            setCurrentStep(initialCasinoId ? 2 : 1); // Skip to step 2 if casino is pre-selected
-            setFormData({
+            // Lock body scroll and reset form state
+            document.body.classList.add('overflow-hidden');
+            setCurrentStep(initialCasinoId ? 2 : 1);
+            setFormData(prev => ({
+                ...prev,
                 targetOperator: initialCasinoId || '',
                 incidentDate: new Date().toISOString().split('T')[0],
                 category: 'PAYOUT',
                 priority: 'STANDARD',
-                ratingPayout: 0,
-                ratingTerms: 0,
-                ratingSupport: 0,
-                summary: '',
-                evidenceUrl: '',
-                txId: '',
-                attestData: false,
-                attestTerms: false
-            });
+                ratingPayout: 0, ratingTerms: 0, ratingSupport: 0,
+                summary: '', evidenceUrl: '', txId: '',
+                attestData: false, attestTerms: false
+            }));
             setSearchTerm('');
         } else {
-            document.body.classList.remove('modal-open');
+            document.body.classList.remove('overflow-hidden');
         }
-        return () => document.body.classList.remove('modal-open');
-    }, [isOpen, initialCasinoId]);
+
+        return () => {
+            window.removeEventListener('keydown', handleEsc);
+            document.body.classList.remove('overflow-hidden');
+        };
+    }, [isOpen, initialCasinoId, onClose]);
+
 
     const selectedCasino = useMemo(() => casinos.find(c => c.id === formData.targetOperator), [formData.targetOperator]);
+    
     const filteredCasinos = useMemo(() => {
-        if (!searchTerm) return casinos.slice(0, 5);
+        if (!searchTerm.length < 2) return casinos.slice(0, 5); // Show top 5 if search term is short
         return casinos.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()));
     }, [searchTerm]);
 
-    // Fix: Corrected the type of 'value' parameter for improved type safety.
-    const handleInputChange = (field: keyof typeof formData, value: string | number | boolean) => {
+    // Input handler with type safety
+    const handleInputChange = useCallback((field: keyof typeof formData, value: string | number | boolean) => {
         setFormData(prev => ({ ...prev, [field]: value }));
-    };
+    }, []);
 
-    const validateStep = () => {
+    const validateStep = useCallback(() => {
         switch (currentStep) {
             case 1:
                 if (!formData.targetOperator) { showToast("VPR ERROR: Target Operator required.", "error"); return false; }
@@ -102,8 +188,9 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, initi
                 }
                 return true;
             case 4:
+                // Simple URL validation
                 if (!formData.evidenceUrl || !formData.evidenceUrl.startsWith('http')) {
-                    showToast("EVIDENCE MISSING: VPR requires a valid verifiable proof URL.", "error"); return false;
+                    showToast("EVIDENCE MISSING: VPR requires a valid verifiable proof URL (starting with http).", "error"); return false;
                 }
                 return true;
             case 5:
@@ -113,20 +200,27 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, initi
                 return true;
             default: return true;
         }
-    };
+    }, [currentStep, formData, showToast]);
 
-    const handleNext = () => {
+    const handleNext = useCallback(() => {
         if (validateStep()) {
             setCurrentStep(prev => Math.min(prev + 1, STEPS.length));
         }
-    };
-    const handleBack = () => setCurrentStep(prev => Math.max(prev - 1, 1));
-    const handleSubmit = () => {
+    }, [validateStep]);
+    
+    const handleBack = useCallback(() => setCurrentStep(prev => Math.max(prev - 1, 1)), []);
+    
+    const handleSubmit = useCallback(() => {
         if (!validateStep()) return;
+        
+        // --- REAL SUBMISSION LOGIC WOULD GO HERE ---
+        console.log("Submitting VPR:", formData);
+        
         showToast("VPR TRANSMITTED. Validation Queue activated. +50 ZP Pending.", "success");
         onClose();
-    };
+    }, [validateStep, formData, onClose, showToast]);
 
+    // Inner component for metric rating for cleaner rendering
     const MetricRater = ({ label, field, Icon }: { label: string, field: keyof typeof formData, Icon: React.FC<any>}) => (
         <div className="p-4 rounded-xl border border-[#3a3846] bg-[#0c0c0e] hover:border-neon-surge/50 transition-all">
             <label className="block text-xs font-jetbrains-mono text-text-tertiary uppercase mb-4 flex items-center gap-2">
@@ -136,7 +230,6 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, initi
                 <span className="text-xs font-jetbrains-mono w-14 text-warning-high text-center sm:text-left">CRIT (1)</span>
                 <div className="flex gap-2 flex-1 justify-center">
                     {[1, 2, 3, 4, 5].map((val) => {
-                        const isSelected = formData[field] === val;
                         const isActive = (formData[field] as number) >= val;
                         return (
                             <button
@@ -162,13 +255,22 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, initi
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto" role="dialog" aria-modal="true">
+        <div 
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto" 
+            role="dialog" 
+            aria-modal="true"
+            aria-labelledby="vpr-modal-title"
+        >
             <div className="fixed inset-0 bg-black/90 backdrop-blur-md transition-opacity" onClick={onClose} />
+            
+            {/* Modal Container */}
             <div className="relative w-full max-w-4xl rounded-xl bg-foundation-light border border-neon-surge/30 shadow-[0_0_50px_rgba(0,255,192,0.15)] animate-fadeIn flex flex-col my-auto max-h-[95vh]">
+                
+                {/* Header & Step Tracker */}
                 <div className="p-6 border-b border-neon-surge/30 bg-foundation rounded-t-xl">
                     <div className="flex justify-between items-start mb-6">
                         <div>
-                            <h2 className="font-orbitron text-2xl font-bold text-white flex items-center gap-3 uppercase text-glow">
+                            <h2 id="vpr-modal-title" className="font-orbitron text-2xl font-bold text-white flex items-center gap-3 uppercase text-glow">
                                 <Icons.Database className="h-6 w-6 text-neon-surge animate-pulse" /> ZAP VPR SUBMISSION
                             </h2>
                             <p className="text-neon-surge font-jetbrains-mono text-xs uppercase tracking-widest mt-1">// PROTOCOL V2.0 // STATUS: ACTIVE</p>
@@ -186,10 +288,15 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, initi
                         ))}
                     </div>
                 </div>
+                
                 <div className="bg-neon-surge/5 border-b border-neon-surge/10 p-3 px-6 text-xs text-text-tertiary font-jetbrains-mono">
                     <strong className="text-neon-surge">DIRECTIVE:</strong> Subjective noise will be purged by the validation queue. **Only raw, verifiable data is accepted.**
                 </div>
+                
+                {/* Main Content Area (Scrollable) */}
                 <div className="p-6 md:p-8 overflow-y-auto flex-1 custom-scrollbar bg-foundation-light rounded-b-xl">
+                    
+                    {/* STEP 1: TARGET */}
                     {currentStep === 1 && (
                         <div className="animate-fadeIn space-y-6">
                             <h3 className="font-orbitron text-xl text-white uppercase mb-4">// IDENTIFY TARGET</h3>
@@ -207,16 +314,24 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, initi
                                     ) : (
                                         <div className="relative">
                                             <Icons.Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary h-5 w-5" />
-                                            <Input placeholder="SEARCH GRID..." className="pl-10 font-jetbrains-mono" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} autoFocus />
-                                            {searchTerm && (
+                                            <Input placeholder="SEARCH GRID..." className="pl-10 font-jetbrains-mono" value={searchTerm} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)} autoFocus />
+                                            {searchTerm.length >= 2 && (
                                                 <div className="absolute top-full left-0 w-full bg-foundation border border-[#3a3846] rounded-lg mt-1 max-h-48 overflow-y-auto z-20 shadow-xl">
                                                     {filteredCasinos.map(c => (
-                                                        <button key={c.id} type="button" onClick={() => { handleInputChange('targetOperator', c.id); setSearchTerm(''); }} className="w-full text-left p-3 hover:bg-foundation-light flex items-center gap-3 transition-colors">
+                                                        <button 
+                                                            key={c.id} 
+                                                            type="button" 
+                                                            onClick={() => { handleInputChange('targetOperator', c.id); setSearchTerm(''); }} 
+                                                            className="w-full text-left p-3 hover:bg-foundation-light flex items-center gap-3 transition-colors"
+                                                        >
                                                             <img src={c.logo} className="w-7 h-7 rounded-full" alt="" /> 
                                                             <span className="text-white font-orbitron text-sm">{c.name}</span>
                                                             <span className="ml-auto text-xs text-text-tertiary font-jetbrains-mono">{c.rating.toFixed(1)} ZAP</span>
                                                         </button>
                                                     ))}
+                                                    {filteredCasinos.length === 0 && (
+                                                        <p className="p-3 text-text-tertiary text-sm">No target found in database.</p>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -225,17 +340,19 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, initi
                             </div>
                         </div>
                     )}
+                    
+                    {/* STEP 2: SIGNAL */}
                     {currentStep === 2 && (
                         <div className="animate-fadeIn space-y-8">
                            <h3 className="font-orbitron text-xl text-white uppercase mb-4">// DEFINE SIGNAL FOCUS</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label className="block text-xs font-jetbrains-mono text-text-tertiary uppercase mb-3">Date of Incident *</label>
-                                    <Input type="date" value={formData.incidentDate} onChange={(e) => handleInputChange('incidentDate', e.target.value)} className="font-jetbrains-mono" max={new Date().toISOString().split('T')[0]}/>
+                                    <Input type="date" value={formData.incidentDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('incidentDate', e.target.value)} className="font-jetbrains-mono" max={new Date().toISOString().split('T')[0]}/>
                                 </div>
                                 <div>
                                      <label className="block text-xs font-jetbrains-mono text-text-tertiary uppercase mb-3">Report Category (VPR Focus)</label>
-                                     <Input as="select" value={formData.category} onChange={(e) => handleInputChange('category', e.target.value)}>
+                                     <Input as="select" value={formData.category} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleInputChange('category', e.target.value)}>
                                         {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                                      </Input>
                                 </div>
@@ -249,12 +366,14 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, initi
                                         ))}
                                     </div>
                                     <p className="text-xs text-text-tertiary mt-6 p-4 bg-foundation rounded-lg border border-yellow-500/30">
-                                        <Icons.AlertTriangle className="inline-block w-4 h-4 mr-1 text-yellow-500" /> Critical priority is for security breaches or confirmed fraud only. Use responsibly.
+                                        <Icons.AlertTriangle className="inline-block w-4 h-4 mr-1 text-yellow-500" /> Critical priority is for security breaches or confirmed fraud only.
                                     </p>
                                 </div>
                             </div>
                         </div>
                     )}
+                    
+                    {/* STEP 3: DATA */}
                     {currentStep === 3 && (
                         <div className="animate-fadeIn space-y-6">
                            <h3 className="font-orbitron text-xl text-white uppercase mb-4">// RAW DATA IMPUT</h3>
@@ -266,13 +385,15 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, initi
                            </div>
                            <div className="mt-8">
                                <label className="block text-xs font-jetbrains-mono text-neon-surge uppercase mb-2">Report Summary (The Evidence-Backed Narrative) *</label>
-                               <Input as="textarea" rows={6} placeholder="STATE THE FACTS: What happened, expected outcome, actual outcome. Objective data only." value={formData.summary} onChange={(e) => handleInputChange('summary', e.target.value)} />
+                               <Input as="textarea" rows={6} placeholder="STATE THE FACTS: What happened, expected outcome, actual outcome. Objective data only." value={formData.summary} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleInputChange('summary', e.target.value)} />
                                <div className={`text-xs text-right mt-1 font-jetbrains-mono ${formData.summary.length < 50 ? 'text-warning-high' : 'text-neon-surge'}`}>
                                    {formData.summary.length} / 50 minimum chars
                                </div>
                            </div>
                         </div>
                     )}
+                    
+                    {/* STEP 4: EVIDENCE */}
                     {currentStep === 4 && (
                        <div className="animate-fadeIn space-y-8">
                            <h3 className="font-orbitron text-xl text-white uppercase mb-4">// EVIDENCE INJECTION</h3>
@@ -285,16 +406,18 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, initi
                                <label className="block text-xs font-jetbrains-mono text-neon-surge uppercase mb-2">Evidence URL (Immutable Link) *</label>
                                <div className="relative">
                                    <Icons.Link className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary h-5 w-5" />
-                                   <Input placeholder="https://verifiable-proof-link.com" className="pl-10 font-jetbrains-mono" type="url" value={formData.evidenceUrl} onChange={(e) => handleInputChange('evidenceUrl', e.target.value)} />
+                                   <Input placeholder="https://verifiable-proof-link.com" className="pl-10 font-jetbrains-mono" type="url" value={formData.evidenceUrl} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('evidenceUrl', e.target.value)} />
                                </div>
                            </div>
                            <div>
                                <label className="block text-xs font-jetbrains-mono text-text-tertiary uppercase mb-2">Transaction ID / Hash (Optional)</label>
-                               <Input placeholder="0x..." className="font-jetbrains-mono" value={formData.txId} onChange={(e) => handleInputChange('txId', e.target.value)} />
+                               <Input placeholder="0x..." className="font-jetbrains-mono" value={formData.txId} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('txId', e.target.value)} />
                                <p className="text-xs text-[#666] mt-2 font-jetbrains-mono">TxID accelerates validation for financial disputes.</p>
                            </div>
                        </div>
                     )}
+                    
+                    {/* STEP 5: TRANSMIT */}
                     {currentStep === 5 && (
                         <div className="animate-fadeIn space-y-6">
                             <h3 className="font-orbitron text-xl text-white uppercase mb-4">// FINAL CONTRACT ATTESTATION</h3>
@@ -305,7 +428,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, initi
                             <div className="space-y-5 bg-foundation p-6 rounded-lg border border-neon-surge/30 shadow-md">
                                 <label className="flex items-start gap-4 cursor-pointer group">
                                     <div className="relative flex items-center mt-1">
-                                        <input type="checkbox" className="peer sr-only" checked={formData.attestData} onChange={(e) => handleInputChange('attestData', e.target.checked)} />
+                                        <input type="checkbox" className="peer sr-only" checked={formData.attestData} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('attestData', e.target.checked)} />
                                         <div className="h-6 w-6 border-2 border-[#3a3846] rounded-md bg-foundation-light peer-checked:bg-neon-surge peer-checked:border-neon-surge transition-all flex items-center justify-center">
                                             <Icons.CheckCircle className={`h-4 w-4 text-black ${formData.attestData ? 'opacity-100' : 'opacity-0'}`} />
                                         </div>
@@ -318,7 +441,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, initi
                                 <div className="h-px bg-[#3a3846]/50 w-full my-2"></div>
                                 <label className="flex items-start gap-4 cursor-pointer group">
                                      <div className="relative flex items-center mt-1">
-                                        <input type="checkbox" className="peer sr-only" checked={formData.attestTerms} onChange={(e) => handleInputChange('attestTerms', e.target.checked)} />
+                                        <input type="checkbox" className="peer sr-only" checked={formData.attestTerms} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('attestTerms', e.target.checked)} />
                                         <div className="h-6 w-6 border-2 border-[#3a3846] rounded-md bg-foundation-light peer-checked:bg-neon-surge peer-checked:border-neon-surge transition-all flex items-center justify-center">
                                             <Icons.CheckCircle className={`h-4 w-4 text-black ${formData.attestTerms ? 'opacity-100' : 'opacity-0'}`} />
                                         </div>
@@ -332,6 +455,8 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, initi
                         </div>
                     )}
                 </div>
+                
+                {/* Footer and Navigation */}
                 <div className="p-4 md:p-6 border-t border-neon-surge/30 bg-foundation rounded-b-xl flex justify-between items-center">
                     {currentStep > 1 ? (
                         <Button type="button" onClick={handleBack} className="bg-foundation-light text-neon-surge border border-neon-surge/30 hover:bg-foundation-light/80 font-jetbrains-mono text-xs shadow-none px-6">
@@ -352,3 +477,4 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, initi
         </div>
     );
 };
+
