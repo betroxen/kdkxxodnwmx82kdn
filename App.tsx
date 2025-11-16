@@ -34,7 +34,7 @@ import CopyrightNoticePage from './pages/CopyrightNoticePage';
 import FAQPage from './pages/FAQPage';
 import ProtocolDeepDivePage from './pages/ProtocolDeepDivePage';
 import PartnerVettingPage from './pages/PartnerVettingPage';
-import { AuthModal } from './components/LoginModal';
+import AuthModal from './components/LoginModal'; // FIX: Changed from named import { AuthModal } to default import
 import { Toaster } from './components/Toaster';
 import { ReviewModal } from './components/ReviewModal';
 
@@ -164,4 +164,3 @@ function App() {
 }
 
 export default App;
-
