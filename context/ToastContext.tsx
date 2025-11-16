@@ -17,12 +17,19 @@ export const ToastContext = createContext<ToastContextType | undefined>(undefine
 
 export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const playNotificationSound = useSound('https://files.catbox.moe/k4vcuv.mp3', 0.3);
   
+  // PRODUCTION MANDATE: Audio assets must be bundled or served from a dedicated, trusted CDN.
+  // We're replacing the external hoster URL with a secure local path.
+  const notificationSoundAsset = '/assets/audio/system_notification.mp3';
+  const playNotificationSound = useSound(notificationSoundAsset, 0.3);
+
   const showToast = useCallback((message: string, type: ToastMessage['type']) => {
     const id = Date.now() + Math.random();
     setToasts((prevToasts) => [...prevToasts, { id, message, type }]);
-    playNotificationSound();
+    // We only play sound if the hook returned a player instance (preventing crashes if hook fails)
+    if (playNotificationSound) {
+        playNotificationSound();
+    }
   }, [playNotificationSound]);
 
   const removeToast = useCallback((id: number) => {
@@ -35,3 +42,4 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     </ToastContext.Provider>
   );
 };
+
