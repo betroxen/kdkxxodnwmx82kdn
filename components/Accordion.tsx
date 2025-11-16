@@ -1,169 +1,291 @@
-import React, { createContext, useContext, useRef, useLayoutEffect, useState, ReactNode, useCallback } from 'react';
+'use client';
 
-// --- START: SINGLE-FILE COMPONENT DEPENDENCIES ---
+import React, { 
+  createContext, 
+  useContext, 
+  useRef, 
+  useLayoutEffect, 
+  useState, 
+  ReactNode, 
+  useCallback, 
+  useId,
+  useEffect,
+  ButtonHTMLAttributes,
+  HTMLAttributes
+} from 'react';
+import { cn } from '@/lib/utils'; // Assume you have this util, or replace with clsx
 
-// 1. Mock Icons (lucide-react equivalent for 'ChevronDown')
+// -------------------------------------------------------------------
+// ZAPCORE AGGRESSIVE ACCORDION v3.0 - ELECTRIC CYAN WARFARE EDITION
+// Mobile-first, accessible, controlled/uncontrolled, compound contexts, GPU-accelerated
+// Zero bullshit. Maximum impact.
+// -------------------------------------------------------------------
+
+// 1. Icons - Violent Cyan Surge
 const Icons = {
-    ChevronDown: (props: React.SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>),
+  ChevronDown: (props: React.SVGProps<SVGSVGElement>) => (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  ),
 };
 
-// 2. Context Types
+// 2. Contexts
 interface AccordionContextType {
+  type: 'single' | 'multiple';
+  collapsible: boolean;
   openValues: string[];
   toggleItem: (value: string) => void;
 }
 
-// 3. Context Creation
 const AccordionContext = createContext<AccordionContextType | null>(null);
 
-// --- END: SINGLE-FILE COMPONENT DEPENDENCIES ---
-
-
-// 4. Main Accordion Component (Provider)
-interface AccordionProps {
-    children: ReactNode;
-    multiple?: boolean;
-    defaultOpen?: string[];
+interface ItemContextType {
+  value: string;
+  isOpen: boolean;
+  triggerId: string;
+  contentId: string;
 }
-export const Accordion: React.FC<AccordionProps> = ({ children, multiple = false, defaultOpen = [] }) => {
-  const [openValues, setOpenValues] = useState(defaultOpen);
 
-  const toggleItem = useCallback((value: string) => {
-    setOpenValues(prev => {
-      if (multiple) {
-        // Toggle item: add if closed, remove if open
-        return prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value];
+const ItemContext = createContext<ItemContextType | null>(null);
+
+// 3. Main Accordion (Provider) - Now Fully Controlled + Accessible
+interface AccordionProps extends HTMLAttributes<HTMLDivElement> {
+  children: ReactNode;
+  type?: 'single' | 'multiple';
+  collapsible?: boolean;
+  value?: string[];
+  onValueChange?: (values: string[]) => void;
+  defaultValue?: string[];
+}
+
+export const Accordion = ({
+  children,
+  type = 'single',
+  collapsible = type === 'single',
+  value: controlledValue,
+  onValueChange,
+  defaultValue = [],
+  className,
+  ...props
+}: AccordionProps) => {
+  const isControlled = controlledValue !== undefined;
+  const [uncontrolledValue, setUncontrolledValue] = useState<string[]>(
+    Array.isArray(defaultValue) ? defaultValue : defaultValue ? [defaultValue] : []
+  );
+
+  const openValues = isControlled ? (controlledValue ?? []) : uncontrolledValue;
+
+  const toggleItem = useCallback(
+    (value: string) => {
+      let newValues: string[] = [];
+
+      if (type === 'multiple') {
+        newValues = openValues.includes(value)
+          ? openValues.filter((v) => v !== value)
+          : [...openValues, value];
       } else {
-        // Single open item: close if same, open new one if different
-        return prev.includes(value) ? [] : [value];
+        if (openValues.includes(value)) {
+          newValues = collapsible ? [] : openValues;
+        } else {
+          newValues = [value];
+        }
       }
-    });
-  }, [multiple]);
+
+      if (isControlled) {
+        onValueChange?.(newValues);
+      } else {
+        setUncontrolledValue(newValues);
+      }
+    },
+    [type, collapsible, openValues, isControlled, onValueChange]
+  );
 
   return (
-    <AccordionContext.Provider value={{ openValues, toggleItem }}>
-      <div className="rounded-xl border border-neon-surge/20 bg-foundation-dark/70 shadow-lg">
+    <AccordionContext.Provider value={{ type, collapsible, openValues, toggleItem }}>
+      <div
+        className={cn(
+          "rounded-2xl overflow-hidden border border-surge/30 bg-void-deep/90 backdrop-blur-xl glow-surge-sm divide-y divide-surge/10 shadow-2xl",
+          className
+        )}
+        {...props}
+      >
         {children}
       </div>
     </AccordionContext.Provider>
   );
 };
 
-// 5. AccordionItem Component (Container for Trigger and Content)
-interface AccordionItemProps {
-    children: ReactNode;
-    value: string; // Unique identifier for the item
+// 4. AccordionItem - Compound Context Provider + Hover Glow
+interface AccordionItemProps extends HTMLAttributes<HTMLDivElement> {
+  value: string;
 }
-export const AccordionItem: React.FC<AccordionItemProps> = ({ children, value }) => {
-  const context = useContext(AccordionContext);
-  if (!context) {
-    // Crucial check for proper component usage
-    console.error('AccordionItem must be used within an Accordion');
-    return null;
-  }
-  const isOpen = context.openValues.includes(value);
 
-  // Clone children to inject props (value, isOpen) to Trigger and Content
-  const childrenWithProps = React.Children.map(children, child => {
-    if (React.isValidElement(child)) {
-      return React.cloneElement(child, { value, isOpen } as any);
-    }
-    return child;
-  });
+export const AccordionItem = ({ children, value, className, ...props }: AccordionItemProps) => {
+  const accordionContext = useContext(AccordionContext);
+  if (!accordionContext) throw new Error('AccordionItem must be used within an <Accordion />');
+
+  const { openValues } = accordionContext;
+  const isOpen = openValues.includes(value);
+
+  const triggerId = useId();
+  const contentId = useId();
 
   return (
-    <div className="border-b border-[#333333] last:border-b-0 px-4">
-      {childrenWithProps}
-    </div>
+    <ItemContext.Provider value={{ value, isOpen, triggerId, contentId }}>
+      <div
+        data-state={isOpen ? 'open' : 'closed'}
+        className={cn(
+          "group transition-all duration-500 ease-out hover:glow-surge-lg hover:bg-void-raise/70",
+          isOpen && "glow-surge-md bg-void-raise/50",
+          className
+        )}
+        {...props}
+      >
+        {children}
+      </div>
+    </ItemContext.Provider>
   );
 };
 
-// 6. AccordionTrigger Component (Button to toggle open state)
-interface AccordionTriggerProps {
-    children: ReactNode;
-    value?: string;
-    isOpen?: boolean;
-}
-export const AccordionTrigger: React.FC<AccordionTriggerProps> = ({ children, value, isOpen }) => {
-  const context = useContext(AccordionContext);
-  
-  if (!context || value === undefined) {
-    // Crucial check
-    console.error('AccordionTrigger must be used within an AccordionItem and receive a "value" prop.');
-    return null;
+// 5. AccordionTrigger - Electric Hover + Pulse When Open
+interface AccordionTriggerProps extends ButtonHTMLAttributes<HTMLButtonElement> {}
+
+export const AccordionTrigger = ({ children, className, ...props }: AccordionTriggerProps) => {
+  const itemContext = useContext(ItemContext);
+  const accordionContext = useContext(AccordionContext);
+
+  if (!itemContext || !accordionContext) {
+    throw new Error('AccordionTrigger must be used within an AccordionItem');
   }
+
+  const { value, isOpen, triggerId, contentId } = itemContext;
+  const { toggleItem } = accordionContext;
 
   return (
     <button
-      className="flex w-full items-center justify-between py-4 text-left group transition-colors focus:outline-none hover:text-white/80"
-      onClick={() => context.toggleItem(value)}
+      id={triggerId}
+      aria-controls={contentId}
       aria-expanded={isOpen}
+      onClick={() => toggleItem(value)}
+      className={cn(
+        "flex w-full items-center justify-between px-8 py-7 text-left uppercase tracking-widest transition-all duration-400 group-hover:text-surge focus-visible:glow-surge-lg",
+        isOpen ? "text-surge" : "text-white",
+        "font-bold text-xl lg:text-2xl",
+        className
+      )}
+      {...props}
     >
-      <span className="flex-1 font-orbitron text-sm font-bold uppercase text-white group-hover:text-neon-surge transition-colors">
+      <span className="flex-1 transition-all duration-400 group-hover:text-glow-surge group-hover:drop-shadow-[0_0_20px_rgba(0,255,255,0.8)]">
         {children}
       </span>
-      {/* Rotation indicates open state */}
-      <Icons.ChevronDown className={`h-5 w-5 shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : 'rotate-0'} text-neon-surge`} />
+
+      <Icons.ChevronDown
+        className={cn(
+          "h-8 w-8 shrink-0 text-surge transition-all duration-500 group-hover:scale-125",
+          isOpen && "rotate-180 glow-surge-lg animate-pulse"
+        )}
+      />
     </button>
   );
 };
 
-// 7. AccordionContent Component (Content panel with height transition)
-interface AccordionContentProps {
-    children: ReactNode;
-    isOpen?: boolean;
-}
-export const AccordionContent: React.FC<AccordionContentProps> = ({ children, isOpen }) => {
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState(isOpen ? 'auto' : '0px');
+// 6. AccordionContent - Smooth Height + Fade + Responsive Auto Height
+interface AccordionContentProps extends HTMLAttributes<HTMLDivElement> {}
 
-  // useLayoutEffect is critical here to calculate height before paint, preventing flashes.
+export const AccordionContent = ({ children, className, ...props }: AccordionContentProps) => {
+  const itemContext = useContext(ItemContext);
+  if (!itemContext) throw new Error('AccordionContent must be used within an AccordionItem');
+
+  const { isOpen, contentId, triggerId } = itemContext;
+
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number | 'auto'>(0);
+
+  // Set correct height instantly on open/close (prevents flash + smooth close)
   useLayoutEffect(() => {
-    if (contentRef.current) {
-      // Calculate height dynamically. If open, set to scrollHeight, otherwise 0.
-      setHeight(isOpen ? `${contentRef.current.scrollHeight}px` : '0px');
+    const el = contentRef.current;
+    if (!el) return;
+
+    const scrollH = el.scrollHeight;
+
+    if (isOpen) {
+      setHeight(scrollH); // immediate open to correct height
+    } else {
+      setHeight(scrollH);
+      requestAnimationFrame(() => setHeight(0));
     }
-  }, [isOpen, children]); // Re-calculate if open state or content changes
+  }, [isOpen, children]);
+
+  // Switch to auto after open animation for dynamic content support
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+
+    const handleTransitionEnd = (e: TransitionEvent) => {
+      if (e.propertyName === 'height' && isOpen) {
+        setHeight('auto');
+      }
+    };
+
+    el.addEventListener('transitionend', handleTransitionEnd);
+    return () => el.removeEventListener('transitionend', handleTransitionEnd);
+  }, [isOpen]);
 
   return (
     <div
+      id={contentId}
+      aria-labelledby={triggerId}
+      className="overflow-hidden"
+      style={{
+        height: height === 'auto' ? 'auto' : `${height}px`,
+        transition: 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+      }}
       ref={contentRef}
-      style={{ height, transition: 'height 0.35s cubic-bezier(0.4, 0, 0.2, 1)' }}
-      className="overflow-hidden pb-0" // pb-0 allows the content padding to control final spacing
+      {...props}
     >
-      <div className="pb-4 text-text-secondary font-jetbrains-mono text-sm">
-        {children}
+      <div
+        className={cn(
+          "px-8 pb-10 pt-2 transition-all duration-500 ease-out",
+          isOpen ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3",
+          className
+        )}
+      >
+        <div className="text-text-secondary/90 text-lg leading-relaxed font-medium">
+          {children}
+        </div>
       </div>
     </div>
   );
 };
 
-
-// Example Usage (for demonstration)
+// -------------------------------------------------------------------
+// EXAMPLE USAGE - PURE DEGEN FAQ
+// -------------------------------------------------------------------
 const FAQ_DATA = [
-    { value: 'protocol-a', title: 'What is ZK-Rollup Security?', content: 'The Zero-Knowledge Rollup (ZK-R) protocol batch-processes thousands of transactions off-chain and generates a cryptographic proof of validity. This proof is then posted back to the main chain, significantly boosting throughput and security while minimizing gas costs.' },
-    { value: 'protocol-b', title: 'How do Degen Rewards work?', content: 'Zap Points are distributed based on verifiable network participation, including successful transaction validation, governance voting, and completing quarterly "Syndicate Missions." Loyalty is tracked on-chain, and rewards unlock progressive tiers.' },
-    { value: 'protocol-c', title: 'Can I open multiple items at once?', content: 'Yes, if the "multiple" prop is set to true on the main Accordion component, users can expand any number of items simultaneously. By default, only one item can be open.' },
+  { value: 'zk', title: 'WHAT THE FUCK IS ZK-ROLLUP FINALITY?', content: 'Every spin, crash, plinko drop is batched off-chain and sealed with a zero-knowledge proof that gets slammed onto Ethereum L1. Instant, immutable, unbreakable. No rollbacks. No bullshit. If you can’t prove it, you don’t play here.' },
+  { value: 'vrf', title: 'HOW DOES DECENTRALIZED VRF WORK?', content: 'Chainlink VRF oracles feed truly random seeds. Server seed + client seed + nonce = verifiable outcome before the round even starts. No house manipulation. No black-box RNG. We don’t trust — we verify.' },
+  { value: 'rewards', title: 'WHO GETS PAID IN SSP?', content: 'You do. Every month 30% of affiliate revenue gets dumped straight into the top 100 intel contributors. One veto that kills a casino can pay six figures. This isn’t engagement farming. This is mercenary warfare.' },
+  { value: 'veto', title: 'WHAT HAPPENS WHEN COMMUNITY VETO HITS?', content: '100+ verified reports → score freeze → flash audit → confirmed fraud = permanent 0.0 tombstone. Revenue feed cut. Casino starves in public. We’ve executed 27 platforms in 2025. Your favorite might be next.' },
 ];
 
-const App: React.FC = () => (
-    <div className="p-8 max-w-2xl mx-auto">
-        <h1 className="font-orbitron text-2xl font-bold text-white mb-6 uppercase">System FAQ v2.1</h1>
-        
-        <Accordion multiple defaultOpen={['protocol-a']}>
-            {FAQ_DATA.map((item) => (
-                <AccordionItem key={item.value} value={item.value}>
-                    <AccordionTrigger>
-                        {item.title}
-                    </AccordionTrigger>
-                    <AccordionContent>
-                        {item.content}
-                    </AccordionContent>
-                </AccordionItem>
-            ))}
+export default function AccordionShowcase() {
+  return (
+    <div className="min-h-screen bg-void p-8">
+      <h1 className="font-orbitron text-5xl md:text-7xl font-black text-center mb-16 text-surge glow-surge-lg glitch" data-text="ZAP FAQ">
+        ZAP FAQ
+      </h1>
+
+      <div className="max-w-5xl mx-auto">
+        <Accordion type="multiple" defaultValue={['zk']}>
+          {FAQ_DATA.map((item) => (
+            <AccordionItem key={item.value} value={item.value}>
+              <AccordionTrigger>{item.title}</AccordionTrigger>
+              <AccordionContent>{item.content}</AccordionContent>
+            </AccordionItem>
+          ))}
         </Accordion>
+      </div>
     </div>
-);
-
-export default App;
-
+  );
+}
