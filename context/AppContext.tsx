@@ -1,5 +1,5 @@
 import React, { createContext, useState, ReactNode, useContext, useCallback } from 'react';
-import { useAppwriteAuth } from './AppwriteAuthContext'; // <--- NEW: Import the real auth hook
+import { useAppwriteAuth } from './AppwriteAuthContext'; // Using the real auth hook
 
 // --- START: TYPE DEFINITIONS ---
 
@@ -170,3 +170,4 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     </AppContext.Provider>
   );
 };
+
