@@ -1,64 +1,27 @@
-import React, { createContext, useState, ReactNode, useEffect, useContext, useCallback } from 'react';
+import React, { createContext, useState, ReactNode, useContext, useCallback } from 'react';
+import { useAppwriteAuth } from './AppwriteAuthContext'; // <--- NEW: Import the real auth hook
 
-// --- START: APPWRITE MOCK & DEPENDENCIES ---
+// --- START: TYPE DEFINITIONS ---
 
-// 1. Mock Appwrite Types
-// In a real app, these would come from 'appwrite'
-const Models = {
-    Preferences: {},
-};
+// IMPORTANT: We use 'any' for the user type here because we cannot access the Appwrite 
+// Models.User type without importing Appwrite itself in this file. 
+// The real user object comes directly from the AppwriteAuthContext.
+type AppwriteUser = any; 
 
-// Define the required User Model structure for TypeScript safety
-type AppwriteUser = {
-    $id: string;
-    email: string;
-    name: string;
-    status: boolean;
-};
-
-// Mock User Data (Simulates a logged-in user)
-const mockUser: AppwriteUser = {
-    $id: 'operator_420_zap',
-    email: 'zap.operator@terminal.net',
-    name: 'Zap Operator',
-    status: true,
-};
-
-// 2. Mock Appwrite Account Object (Simulates '../lib/appwriteConfig')
-const account = {
-    /** Simulates fetching the current user session */
-    get: async (): Promise<AppwriteUser> => {
-        // Simulate network delay
-        return new Promise((resolve, reject) => {
-            // Set mock to resolve after 300ms, simulating a successful session check.
-            setTimeout(() => resolve(mockUser), 300);
-            // Use reject(new Error('No active session')) to test the logout/unauthenticated path.
-        });
-    },
-    /** Simulates deleting the current session (logout) */
-    deleteSession: async (sessionId: string): Promise<void> => {
-        return new Promise((resolve) => {
-            setTimeout(() => resolve(), 100);
-        });
-    }
-};
-
-// --- END: APPWRITE MOCK & DEPENDENCIES ---
-
-
-// --- CONTEXT TYPE DEFINITIONS ---
+// The AppContextType now consumes state from the AppwriteAuthContext
 export interface AppContextType {
   currentPage: string;
   setCurrentPage: (page: string) => void;
 
-  // Appwrite State
+  // Appwrite State (Consumed from AppwriteAuthContext)
   user: AppwriteUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
 
-  // Auth Functions
-  login: (user: AppwriteUser) => void;
-  logout: () => Promise<void>;
+  // Auth Functions (These are now UI-effect wrappers)
+  // They handle modal closing and redirects after the core auth action (in AppwriteAuthContext) completes.
+  login: () => void;
+  logout: () => void;
 
   // UI State
   isCollapsed: boolean;
@@ -94,14 +57,17 @@ export const useAppContext = () => {
     return context;
 };
 
-
 // --- APP PROVIDER COMPONENT ---
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [currentPage, _setCurrentPage] = useState('Home');
+  // Use the real auth state and functions from the parent context
+  const { 
+    user, 
+    isLoading, 
+    isAuthenticated, 
+    logout: authLogout // Rename to avoid conflict with wrapper
+  } = useAppwriteAuth(); 
 
-  // Core Appwrite/Auth State
-  const [user, setUser] = useState<AppwriteUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, _setCurrentPage] = useState('Home');
 
   // UI States
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -119,26 +85,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [viewingCasinoId, setViewingCasinoId] = useState<string | null>(null);
 
 
-  // 1. Initial Appwrite Session Check (Effect runs once on load)
-  useEffect(() => {
-    const checkUserSession = async () => {
-        try {
-            // Attempt to get the current account using the mock
-            const currentAccount = await account.get();
-            setUser(currentAccount);
-        } catch (error) {
-            // User is not logged in or session expired
-            setUser(null);
-            console.warn('Authentication Check: No active user session found.');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    checkUserSession();
-  }, []); // Empty dependency array ensures it only runs on mount
-
-
-  // 2. Context Functions (Memoized using useCallback)
+  // --- CONTEXT FUNCTIONS (UI Side Effects) ---
 
   const setCurrentPage = useCallback((page: string) => {
     _setCurrentPage(page);
@@ -146,22 +93,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setIsMobileOpen(false); // Close mobile menu on navigation
   }, []);
 
-  const login = useCallback((userData: AppwriteUser) => {
-    setUser(userData);
+  // 1. UI Login Wrapper: Handles UI effects after successful Appwrite session creation
+  const login = useCallback(() => {
+    // The user state is updated in AppwriteAuthContext; we only handle UI here.
     setAuthModalOpen(false);
     _setCurrentPage('Dashboard'); // Redirect on successful login
   }, []);
 
+  // 2. UI Logout Wrapper: Calls the real Appwrite logout, then handles UI effects
   const logout = useCallback(async () => {
     try {
-        await account.deleteSession('current');
-        setUser(null);
+        await authLogout(); // Execute the real Appwrite session termination
         _setCurrentPage('Home');
         console.log('Session terminated. User logged out.');
     } catch (e) {
         console.error('Logout protocol failure:', e);
     }
-  }, []);
+  }, [authLogout]);
 
   const openAuthModal = useCallback((tab: 'login' | 'register') => {
     setAuthModalInitialTab(tab);
@@ -182,26 +130,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setInitialReviewCasinoId(null);
   }, []);
 
-  // Derived State
-  const isAuthenticated = !!user;
-
   // Render nothing until the auth state is definitively known (CRITICAL for protected routes)
   if (isLoading) {
     return (
         <div className="flex items-center justify-center min-h-screen bg-foundation-dark text-neon-surge font-jetbrains-mono text-xl animate-pulse">
-            // ESTABLISHING CRITICAL CONNECTION...
+            ESTABLISHING CRITICAL CONNECTION...
         </div>
     );
   }
 
   // Final context value object
-  const contextValue = { 
+  const contextValue: AppContextType = { 
     currentPage, setCurrentPage,
+    // Live Auth State
     user,
     isLoading,
     isAuthenticated,
+    // UI-Effect Wrappers
     login, 
     logout,
+    // UI States
     isCollapsed, setIsCollapsed,
     isMobileOpen, setIsMobileOpen,
     isAuthModalOpen,
@@ -222,4 +170,3 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     </AppContext.Provider>
   );
 };
-
