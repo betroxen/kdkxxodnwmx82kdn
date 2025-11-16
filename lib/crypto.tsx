@@ -148,4 +148,4 @@ export const generatePlinkoPath = async (serverSeed: string, clientSeed: string,
     }
 
     return bucket;
-};
+}
