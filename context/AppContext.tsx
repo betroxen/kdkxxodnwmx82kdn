@@ -1,5 +1,6 @@
 import React, { createContext, useState, ReactNode, useContext, useCallback } from 'react';
-import { useAppwriteAuth } from './AppwriteAuthContext'; // <--- NEW: Import the real auth hook
+// HARD FIX: Using explicit relative path with .tsx extension.
+import { useAppwriteAuth } from './AppwriteAuthContext.tsx'; 
 
 // --- START: TYPE DEFINITIONS ---
 
