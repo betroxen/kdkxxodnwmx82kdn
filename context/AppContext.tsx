@@ -1,40 +1,84 @@
-import React, { createContext, useState, ReactNode, useEffect, useContext } from 'react';
-import { account } from '../lib/appwriteConfig'; // Crucial Appwrite Import
-import { Models } from 'appwrite'; // Appwrite Types
+import React, { createContext, useState, ReactNode, useEffect, useContext, useCallback } from 'react';
 
-// --- Type Definitions (Updated to use Appwrite Model) ---
+// --- START: APPWRITE MOCK & DEPENDENCIES ---
 
-// Define the Appwrite User Model for clean TypeScript
-type AppwriteUser = Models.User<Models.Preferences>;
+// 1. Mock Appwrite Types
+// In a real app, these would come from 'appwrite'
+const Models = {
+    Preferences: {},
+};
 
+// Define the required User Model structure for TypeScript safety
+type AppwriteUser = {
+    $id: string;
+    email: string;
+    name: string;
+    status: boolean;
+};
+
+// Mock User Data (Simulates a logged-in user)
+const mockUser: AppwriteUser = {
+    $id: 'operator_420_zap',
+    email: 'zap.operator@terminal.net',
+    name: 'Zap Operator',
+    status: true,
+};
+
+// 2. Mock Appwrite Account Object (Simulates '../lib/appwriteConfig')
+const account = {
+    /** Simulates fetching the current user session */
+    get: async (): Promise<AppwriteUser> => {
+        // Simulate network delay
+        return new Promise((resolve, reject) => {
+            // Set mock to resolve after 300ms, simulating a successful session check.
+            setTimeout(() => resolve(mockUser), 300);
+            // Use reject(new Error('No active session')) to test the logout/unauthenticated path.
+        });
+    },
+    /** Simulates deleting the current session (logout) */
+    deleteSession: async (sessionId: string): Promise<void> => {
+        return new Promise((resolve) => {
+            setTimeout(() => resolve(), 100);
+        });
+    }
+};
+
+// --- END: APPWRITE MOCK & DEPENDENCIES ---
+
+
+// --- CONTEXT TYPE DEFINITIONS ---
 export interface AppContextType {
   currentPage: string;
   setCurrentPage: (page: string) => void;
-  
+
   // Appwrite State
   user: AppwriteUser | null;
   isLoading: boolean;
-  isAuthenticated: boolean; // Derived from user
-  
-  // Updated Auth Functions
+  isAuthenticated: boolean;
+
+  // Auth Functions
   login: (user: AppwriteUser) => void;
   logout: () => Promise<void>;
-  
+
+  // UI State
   isCollapsed: boolean;
   setIsCollapsed: (isCollapsed: boolean) => void;
   isMobileOpen: boolean;
   setIsMobileOpen: (isOpen: boolean) => void;
 
+  // Modal State: Auth
   isAuthModalOpen: boolean;
   authModalInitialTab: 'login' | 'register';
   openAuthModal: (tab: 'login' | 'register') => void;
   closeAuthModal: () => void;
 
+  // Modal State: Review
   isReviewModalOpen: boolean;
   initialReviewCasinoId: string | null;
   openReviewModal: (id?: string) => void;
   closeReviewModal: () => void;
 
+  // Navigation State
   viewingCasinoId: string | null;
   setViewingCasinoId: (id: string | null) => void;
 }
@@ -50,115 +94,132 @@ export const useAppContext = () => {
     return context;
 };
 
+
+// --- APP PROVIDER COMPONENT ---
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentPage, _setCurrentPage] = useState('Home');
-  
-  // --- CORE APPWRITE STATE ---
+
+  // Core Appwrite/Auth State
   const [user, setUser] = useState<AppwriteUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  // ---------------------------
 
+  // UI States
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
+  // Auth Modal States
   const [isAuthModalOpen, setAuthModalOpen] = useState(false);
   const [authModalInitialTab, setAuthModalInitialTab] = useState<'login' | 'register'>('login');
 
+  // Review Modal States
   const [isReviewModalOpen, setReviewModalOpen] = useState(false);
   const [initialReviewCasinoId, setInitialReviewCasinoId] = useState<string | null>(null);
 
+  // Navigation/Detail State
   const [viewingCasinoId, setViewingCasinoId] = useState<string | null>(null);
 
-  // --- APPWRITE SESSION CHECK (Run once on load) ---
+
+  // 1. Initial Appwrite Session Check (Effect runs once on load)
   useEffect(() => {
     const checkUserSession = async () => {
         try {
+            // Attempt to get the current account using the mock
             const currentAccount = await account.get();
             setUser(currentAccount);
         } catch (error) {
+            // User is not logged in or session expired
             setUser(null);
+            console.warn('Authentication Check: No active user session found.');
         } finally {
             setIsLoading(false);
         }
     };
     checkUserSession();
-  }, []);
-  // ------------------------------------------------
+  }, []); // Empty dependency array ensures it only runs on mount
 
-  const setCurrentPage = (page: string) => {
+
+  // 2. Context Functions (Memoized using useCallback)
+
+  const setCurrentPage = useCallback((page: string) => {
     _setCurrentPage(page);
-    setViewingCasinoId(null);
-  }
+    setViewingCasinoId(null); // Clear detail view on page change
+    setIsMobileOpen(false); // Close mobile menu on navigation
+  }, []);
 
-  // --- UPDATED LOGIN/LOGOUT LOGIC ---
-  const login = (userData: AppwriteUser) => {
+  const login = useCallback((userData: AppwriteUser) => {
     setUser(userData);
     setAuthModalOpen(false);
-    _setCurrentPage('Dashboard');
-  };
+    _setCurrentPage('Dashboard'); // Redirect on successful login
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
         await account.deleteSession('current');
         setUser(null);
         _setCurrentPage('Home');
+        console.log('Session terminated. User logged out.');
     } catch (e) {
-        console.error('Logout failed:', e);
+        console.error('Logout protocol failure:', e);
     }
-  };
-  // ------------------------------------
+  }, []);
 
-  const openAuthModal = (tab: 'login' | 'register') => {
+  const openAuthModal = useCallback((tab: 'login' | 'register') => {
     setAuthModalInitialTab(tab);
     setAuthModalOpen(true);
-  };
+  }, []);
 
-  const closeAuthModal = () => {
+  const closeAuthModal = useCallback(() => {
     setAuthModalOpen(false);
-  };
+  }, []);
 
-  const openReviewModal = (id?: string) => {
+  const openReviewModal = useCallback((id?: string) => {
     setInitialReviewCasinoId(id || null);
     setReviewModalOpen(true);
-  };
+  }, []);
 
-  const closeReviewModal = () => {
+  const closeReviewModal = useCallback(() => {
     setReviewModalOpen(false);
     setInitialReviewCasinoId(null);
-  };
+  }, []);
 
-  // Check if user is logged in
+  // Derived State
   const isAuthenticated = !!user;
 
-  // Render nothing until the auth state is known (crucial for protecting routes)
+  // Render nothing until the auth state is definitively known (CRITICAL for protected routes)
   if (isLoading) {
-    return <div>// ESTABLISHING CRITICAL CONNECTION...</div>;
+    return (
+        <div className="flex items-center justify-center min-h-screen bg-foundation-dark text-neon-surge font-jetbrains-mono text-xl animate-pulse">
+            // ESTABLISHING CRITICAL CONNECTION...
+        </div>
+    );
   }
 
+  // Final context value object
+  const contextValue = { 
+    currentPage, setCurrentPage,
+    user,
+    isLoading,
+    isAuthenticated,
+    login, 
+    logout,
+    isCollapsed, setIsCollapsed,
+    isMobileOpen, setIsMobileOpen,
+    isAuthModalOpen,
+    authModalInitialTab,
+    openAuthModal,
+    closeAuthModal,
+    isReviewModalOpen,
+    initialReviewCasinoId,
+    openReviewModal,
+    closeReviewModal,
+    viewingCasinoId,
+    setViewingCasinoId,
+  };
+
   return (
-    <AppContext.Provider 
-      value={{ 
-        currentPage, setCurrentPage,
-        user,
-        isLoading,
-        isAuthenticated, // Expose derived state
-        login, 
-        logout,
-        isCollapsed, setIsCollapsed,
-        isMobileOpen, setIsMobileOpen,
-        isAuthModalOpen,
-        authModalInitialTab,
-        openAuthModal,
-        closeAuthModal,
-        isReviewModalOpen,
-        initialReviewCasinoId,
-        openReviewModal,
-        closeReviewModal,
-        viewingCasinoId,
-        setViewingCasinoId,
-      }}
-    >
+    <AppContext.Provider value={contextValue}>
       {children}
     </AppContext.Provider>
   );
 };
+
