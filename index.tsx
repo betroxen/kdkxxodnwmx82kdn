@@ -1,9 +1,11 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import { AppContext } from './context/AppContext'; // Your existing UI/App State context
-import { AppwriteAuthProvider } from './context/AppwriteAuthContext'; // The new security context
-import './index.css'; // Assuming you have global styles
+// FIX: Now using the path alias '@' for context imports. 
+// This resolves the 'Could not resolve' error from the build log.
+import { AppContext } from '@/context/AppContext'; 
+import { AppwriteAuthProvider } from '@/context/AppwriteAuthContext'; 
+import './index.css'; 
 
 // Note: Replace the 'value' placeholder below with your actual AppContext values
 const mockAppContextValue = { 
