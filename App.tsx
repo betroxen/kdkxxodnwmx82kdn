@@ -1,12 +1,136 @@
-import React, { ReactNode } from 'react';
-import { ToastProvider, useToast } from './src/components/Toaster'; 
-import { AppwriteAuthProvider, useAppwriteAuth } from './src/context/AppwriteAuthContext';
-import { AppProvider, useAppContext } from './src/context/AppContext';
-import { Models } from 'appwrite'; // Import Models for user type hint
+import React, { ReactNode, createContext, useState, useCallback, useMemo, useContext } from 'react';
+import { Models } from 'appwrite'; // Only external type import we need
 
-// --- START: STUB COMPONENTS & MODALS (To ensure immediate compilation) ---
+// ====================================================================
+// --- STUBBED CONTEXTS AND TOASTER IMPLEMENTATION FOR SINGLE FILE ---
+// These replace the failed imports and allow the app to compile.
+// ====================================================================
 
-// Define Page Key Type for strict routing
+// --- 1. TOASTER CONTEXT STUBS ---
+
+interface Toast {
+    id: string;
+    type: 'success' | 'error' | 'info';
+    title: string;
+    message: string;
+    duration: number;
+}
+interface ToastContextType {
+    addToast: (toast: Omit<Toast, 'id'>) => void;
+    toasts: Toast[];
+}
+const ToastContext = createContext<ToastContextType | undefined>(undefined);
+
+const useToast = () => {
+    const context = useContext(ToastContext);
+    if (!context) {
+        throw new Error('useToast must be used within a ToastProvider');
+    }
+    return context;
+};
+
+const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const [toasts, setToasts] = useState<Toast[]>([]);
+
+    const addToast = useCallback((toast: Omit<Toast, 'id'>) => {
+        const id = Date.now().toString();
+        const newToast = { ...toast, id };
+        setToasts(prev => [newToast, ...prev]);
+
+        setTimeout(() => {
+            setToasts(prev => prev.filter(t => t.id !== id));
+        }, toast.duration || 5000);
+    }, []);
+
+    const value = useMemo(() => ({ toasts, addToast }), [toasts, addToast]);
+
+    return (
+        <ToastContext.Provider value={value}>
+            {children}
+            <Toaster /> {/* Toaster UI Component */}
+        </ToastContext.Provider>
+    );
+};
+
+const Toaster: React.FC = () => {
+    const { toasts } = useToast();
+    return (
+        <div className="fixed top-4 right-4 z-[60] space-y-3 pointer-events-none">
+            {toasts.map(toast => (
+                <div
+                    key={toast.id}
+                    className={`p-4 rounded-lg shadow-lg text-sm font-jetbrains-mono border transition-all duration-300 pointer-events-auto w-80 
+                        ${toast.type === 'success' ? 'bg-green-900 border-green-500 text-green-300' : ''}
+                        ${toast.type === 'error' ? 'bg-red-900 border-red-500 text-red-300' : ''}
+                        ${toast.type === 'info' ? 'bg-blue-900 border-blue-500 text-blue-300' : ''}
+                    `}
+                >
+                    <p className="font-bold uppercase">{toast.title}</p>
+                    <p className="text-xs mt-1">{toast.message}</p>
+                </div>
+            ))}
+        </div>
+    );
+};
+
+// --- 2. APPWRITE AUTH CONTEXT STUBS ---
+
+// Using a simple mock user interface
+interface MockUser extends Partial<Models.User> {
+    email: string;
+    name: string;
+}
+
+interface AppwriteAuthContextType {
+    isAuthenticated: boolean;
+    user: MockUser | null;
+    login: (email: string, pass: string) => Promise<void>;
+    logout: () => void;
+}
+
+const AppwriteAuthContext = createContext<AppwriteAuthContextType | undefined>(undefined);
+
+const useAppwriteAuth = () => {
+    const context = useContext(AppwriteAuthContext);
+    if (!context) {
+        // This will only happen if AppwriteAuthProvider is missing, which is guarded in App
+        return { isAuthenticated: false, user: null, login: async () => {}, logout: () => {} } as AppwriteAuthContextType;
+    }
+    return context;
+};
+
+const AppwriteAuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [user, setUser] = useState<MockUser | null>(null);
+
+    const login = useCallback(async (email: string, pass: string) => {
+        // Mock API call simulation
+        await new Promise(resolve => setTimeout(resolve, 500));
+        setIsAuthenticated(true);
+        setUser({ 
+            email, 
+            name: email.split('@')[0].toUpperCase(),
+            $id: 'user-001' 
+        });
+        // In a real app, you'd handle Firebase/Appwrite authentication here.
+    }, []);
+
+    const logout = useCallback(() => {
+        setIsAuthenticated(false);
+        setUser(null);
+    }, []);
+
+    const value = useMemo(() => ({ isAuthenticated, user, login, logout }), [isAuthenticated, user, login, logout]);
+
+    return (
+        <AppwriteAuthContext.Provider value={value}>
+            {children}
+        </AppwriteAuthContext.Provider>
+    );
+};
+
+// --- 3. APP CONTEXT STUBS ---
+
 type PageKey = 
     | 'home' | 'dashboard' | 'Mines Game' | 'Plinko Game' | 'About Us' | 'Analytics'
     | 'Terms of Service' | 'Privacy Policy' | 'Responsible Gaming' | 'AML & CTF Policy'
@@ -14,6 +138,90 @@ type PageKey =
     | 'Casino Directory' | 'Bonus Offers' | 'Live RTP Tracker' | 'Review Methodology'
     | 'Provably Fair' | 'Support' | 'Cookies Policy' | 'Certified Platforms' | 'Affiliate Program'
     | 'Copyright Notice' | 'FAQ' | 'Protocol Deep Dive' | 'Partner Vetting';
+
+interface AppContextType {
+    currentPage: PageKey;
+    navigate: (page: PageKey) => void;
+    isCollapsed: boolean;
+    setIsCollapsed: (collapsed: boolean) => void;
+    isMobileOpen: boolean;
+    setIsMobileOpen: (open: boolean) => void;
+    // Auth Modal Logic
+    isAuthModalOpen: boolean;
+    authModalInitialTab: 'login' | 'register';
+    openAuthModal: (tab: 'login' | 'register') => void;
+    closeAuthModal: () => void;
+    // Review Modal Logic
+    isReviewModalOpen: boolean;
+    initialReviewCasinoId: string | null;
+    openReviewModal: (casinoId?: string) => void;
+    closeReviewModal: () => void;
+    // Casino Detail View Logic
+    viewingCasinoId: string | null;
+    setViewingCasinoId: (id: string | null) => void;
+}
+
+const AppContext = createContext<AppContextType | undefined>(undefined);
+
+const useAppContext = () => {
+    const context = useContext(AppContext);
+    if (!context) {
+        throw new Error('useAppContext must be used within an AppProvider');
+    }
+    return context;
+};
+
+const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const { isAuthenticated, logout } = useAppwriteAuth();
+    const [currentPage, setCurrentPage] = useState<PageKey>('home');
+    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+    // Modals
+    const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+    const [authModalInitialTab, setAuthModalInitialTab] = useState<'login' | 'register'>('login');
+    const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+    const [initialReviewCasinoId, setInitialReviewCasinoId] = useState<string | null>(null);
+    const [viewingCasinoId, setViewingCasinoId] = useState<string | null>(null);
+
+    const navigate = useCallback((page: PageKey) => {
+        setCurrentPage(page);
+        setViewingCasinoId(null); // Clear detail view on primary navigation
+    }, []);
+
+    const openAuthModal = useCallback((tab: 'login' | 'register') => {
+        setAuthModalInitialTab(tab);
+        setIsAuthModalOpen(true);
+    }, []);
+
+    const closeAuthModal = useCallback(() => setIsAuthModalOpen(false), []);
+
+    const openReviewModal = useCallback((casinoId?: string) => {
+        setInitialReviewCasinoId(casinoId || null);
+        setIsReviewModalOpen(true);
+    }, []);
+
+    const closeReviewModal = useCallback(() => setIsReviewModalOpen(false), []);
+
+    const value = useMemo(() => ({
+        currentPage, navigate, isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen,
+        isAuthModalOpen, authModalInitialTab, openAuthModal, closeAuthModal,
+        isReviewModalOpen, initialReviewCasinoId, openReviewModal, closeReviewModal,
+        viewingCasinoId, setViewingCasinoId
+    }), [
+        currentPage, navigate, isCollapsed, isMobileOpen, 
+        isAuthModalOpen, authModalInitialTab, openAuthModal, closeAuthModal,
+        isReviewModalOpen, initialReviewCasinoId, openReviewModal, closeReviewModal,
+        viewingCasinoId, setViewingCasinoId
+    ]);
+
+    return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+};
+
+
+// ====================================================================
+// --- APPLICATION COMPONENTS (MODALS, PAGES, LAYOUT) ---
+// ====================================================================
 
 
 // --- MODALS ---
@@ -146,11 +354,11 @@ const DashboardPage: React.FC = () => {
         <div className="p-8">
             <h1 className="text-4xl font-orbitron text-green-400 mb-6 uppercase">Operator Dashboard // Active</h1>
             <p className="text-gray-400 mb-8 max-w-2xl font-jetbrains-mono">
-                Welcome back, {(user as Models.User)?.name || 'Operator'}. Mission status: Green.
+                Welcome back, {user?.name || 'Operator'}. Mission status: Green.
             </p>
             
             <button 
-                onClick={() => navigate('Casino Directory' as PageKey)}
+                onClick={() => navigate('Casino Directory')}
                 className="px-6 py-3 bg-green-500 text-black font-bold rounded-lg shadow-lg hover:bg-green-400 transition-all uppercase mr-4"
             >
                 View Casino Directory
@@ -416,7 +624,6 @@ const AppRouter: React.FC = () => {
 // --- Main Application Layout ---
 const MainLayout: React.FC = () => {
     const { isCollapsed, viewingCasinoId, setViewingCasinoId, openReviewModal } = useAppContext();
-    const { isAuthenticated, logout } = useAppwriteAuth();
 
     // Dynamically calculate the margin based on sidebar state
     const sidebarWidth = isCollapsed ? '72px' : '256px';
@@ -464,9 +671,10 @@ const MainLayout: React.FC = () => {
 
 // --- Root App Component (Wrapped in Providers) ---
 const App: React.FC = () => (
-    // NOTE: The AppwriteAuthProvider must be outside AppProvider to provide auth state to it.
+    // The AppwriteAuthProvider must wrap AppProvider, and ToastProvider wraps everything that needs toasts.
     <AppwriteAuthProvider>
         <AppProvider>
+            {/* The Toaster component is now rendered inside the ToastProvider stub above */}
             <ToastProvider>
                 <MainLayout />
             </ToastProvider>
