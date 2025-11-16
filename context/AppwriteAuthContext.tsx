@@ -2,34 +2,36 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { Client, Account, Models } from 'appwrite';
 
 // --- CONFIGURATION ---
-// IMPORTANT: These are assumed to be defined in your .env file and exposed via Vite
-const appwriteEndpoint = import.meta.env.VITE_APPWRITE_ENDPOINT || 'http://localhost/v1';
+const appwriteEndpoint = import.meta.env.VITE_APPWRITE_ENDPOINT || 'https://cloud.appwrite.io/v1';
 const appwriteProjectId = import.meta.env.VITE_APPWRITE_PROJECT_ID;
 
-// --- INITIALIZE APPWRITE CLIENT ---
-// The client will be initialized outside the component, then exposed via context
-const appwriteClient = new Client();
+// Define services outside, but ONLY initialize them if config is present
+let appwriteClient: Client | null = null;
+let accountService: Account | null = null;
+let isConfigured = false;
 
+// CRITICAL FIX: Only initialize the client and account services if the Project ID is present.
 if (appwriteProjectId) {
-  appwriteClient
+  appwriteClient = new Client()
     .setEndpoint(appwriteEndpoint) 
     .setProject(appwriteProjectId);
+  accountService = new Account(appwriteClient);
+  isConfigured = true;
+  console.log("Appwrite: Client configured successfully.");
 } else {
-    console.error("APPWRITE ERROR: VITE_APPWRITE_PROJECT_ID is not set.");
+    // If config fails, we log the error and ensure 'isConfigured' remains false.
+    console.error("APPWRITE CONFIG ERROR: VITE_APPWRITE_PROJECT_ID is missing. Appwrite services will be disabled.");
 }
-
-const accountService = new Account(appwriteClient);
 
 // --- 1. DEFINE CONTEXT TYPES ---
 interface AuthContextType {
-  // Models.User is the type for a successful Appwrite user object
   user: Models.User | null; 
   isLoading: boolean;
   isAuthenticated: boolean;
-  // Expose the core Appwrite services
-  client: Client;
-  account: Account;
-  // Core auth actions (actual Appwrite API calls happen here)
+  isAppwriteConfigured: boolean;
+  client: Client | null;
+  account: Account | null;
+  // Note: These functions will guard against calls if the service is not configured.
   login: (email: string, password: string) => Promise<Models.User | null>; 
   logout: () => Promise<void>;
 }
@@ -38,6 +40,7 @@ const defaultAuthContext: AuthContextType = {
   user: null,
   isLoading: true,
   isAuthenticated: false,
+  isAppwriteConfigured: isConfigured, 
   client: appwriteClient,
   account: accountService,
   login: async () => null,
@@ -57,44 +60,56 @@ interface AppwriteAuthProviderProps {
 }
 
 export const AppwriteAuthProvider: React.FC<AppwriteAuthProviderProps> = ({ children }) => {
+  // Only start loading if Appwrite was configured successfully
   const [user, setUser] = useState<Models.User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(isConfigured); 
   const isAuthenticated = !!user;
 
   // --- INITIAL CHECK: Get the current user session ---
   const checkUserStatus = useCallback(async () => {
+    // Guard against running API calls if Appwrite client failed to initialize
+    if (!isConfigured || !accountService) {
+        setIsLoading(false);
+        return;
+    }
+    
     try {
-      // Check if a session is active and get the user data
       const currentUser = await accountService.get(); 
       setUser(currentUser);
       console.log("Appwrite: Active session found for user:", currentUser.$id);
     } catch (error) {
-      // No active session or API error
       setUser(null);
-      console.log("Appwrite: No active session.");
+      // Log expected "no session" errors quietly
+      if (error instanceof Error && error.message.includes('User (session) not found')) {
+        console.log("Appwrite: No active session.");
+      } else {
+        console.error("Appwrite: Error checking user status:", error);
+      }
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (!appwriteProjectId) {
-        setIsLoading(false);
-        return; // Don't run check if project ID is missing
+    // Only proceed if configuration was successful
+    if (isConfigured) {
+        checkUserStatus(); 
+    } else {
+        setIsLoading(false); // If not configured, immediately stop loading
     }
-    // Run the check on initial component mount
-    checkUserStatus(); 
   }, [checkUserStatus]);
 
   // --- AUTH ACTIONS ---
 
   const login = useCallback(async (email: string, password: string): Promise<Models.User | null> => {
+    if (!accountService) {
+        console.error("Appwrite service is not available. Cannot log in.");
+        return null;
+    }
     try {
       setIsLoading(true);
-      // Create a session for the user
       await accountService.createEmailSession(email, password);
       
-      // Fetch the detailed user object after session is created
       const currentUser = await accountService.get(); 
       setUser(currentUser);
       setIsLoading(false);
@@ -107,9 +122,12 @@ export const AppwriteAuthProvider: React.FC<AppwriteAuthProviderProps> = ({ chil
   }, []);
 
   const logout = useCallback(async () => {
+    if (!accountService) {
+        console.error("Appwrite service is not available. Cannot log out.");
+        return;
+    }
     try {
       setIsLoading(true);
-      // Delete the active session
       await accountService.deleteSession('current');
       setUser(null);
       setIsLoading(false);
@@ -126,13 +144,14 @@ export const AppwriteAuthProvider: React.FC<AppwriteAuthProviderProps> = ({ chil
     user,
     isLoading,
     isAuthenticated,
+    isAppwriteConfigured: isConfigured,
     client: appwriteClient,
     account: accountService,
     login,
     logout,
   };
 
-  // Render the loading screen from AppContext while auth is determining the state
+  // 1. Show loading screen while auth is checking state
   if (isLoading) {
     return (
         <div className="flex items-center justify-center min-h-screen bg-foundation-dark text-neon-surge font-jetbrains-mono text-xl animate-pulse">
@@ -140,7 +159,20 @@ export const AppwriteAuthProvider: React.FC<AppwriteAuthProviderProps> = ({ chil
         </div>
     );
   }
+  
+  // 2. Renders a specific error if the client was never configured (e.g., missing ENV vars)
+  if (!isConfigured) {
+    return (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-red-900/50 text-red-300 p-8 font-mono">
+            <h1 className="text-2xl font-bold mb-4">FATAL APPWRITE CONFIG ERROR</h1>
+            <p className="text-lg text-center">
+                Appwrite Project ID is missing. Check your environment variables (`VITE_APPWRITE_PROJECT_ID`).
+            </p>
+        </div>
+    );
+  }
 
+  // 3. Render the application
   return (
     <AppwriteAuthContext.Provider value={value}>
       {children}
