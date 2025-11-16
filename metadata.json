@@ -1,5 +1,6 @@
 {
-  "name": "Zapway Beta",
-  "description": "",
+  "name": "Zapway Intel Grid",
+  "description": "The command center for verified operator intelligence and high-speed VPR analysis. Zero-fluff data streams.",
+  "version": "1.0.0",
   "requestFramePermissions": []
 }
