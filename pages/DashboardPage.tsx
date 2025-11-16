@@ -14,13 +14,15 @@ const Icons = {
     Gauge: (props: React.SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>),
     Check: (props: React.SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>),
     Info: (props: React.SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>),
+    // FIX: Added AlertTriangle for activity feed warnings
+    AlertTriangle: (props: React.SVGProps<SVGSVGElement>) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-9-15-9 15h18Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>),
 };
 
 // 2. Placeholder Button Component
 const Button: React.FC<any> = ({ children, className, onClick, variant, size = 'md' }) => {
     const baseStyle = "font-bold rounded-lg transition-all duration-300 active:scale-[0.98] disabled:opacity-50";
     const sizeStyle = size === 'sm' ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm';
-    
+
     let colorStyle = 'bg-neon-surge text-black hover:bg-neon-surge/80 shadow-[0_0_10px_rgba(0,255,192,0.3)]';
     if (variant === 'ghost') {
         colorStyle = 'bg-transparent text-text-secondary hover:text-white hover:bg-foundation-light/50';
@@ -99,7 +101,7 @@ const pendingMissions = [
 // Dashboard Widget (Large card for Protocols)
 const DashboardWidget: React.FC<{ icon: React.FC<any>, title: string, description: string, imgSrc: string }> = ({ icon: Icon, title, description, imgSrc }) => (
     <Card className="p-0 overflow-hidden group relative flex flex-col h-[400px]">
-        
+
         {/* Background Image (Replaces video) */}
         <div 
             className="absolute top-0 left-0 w-full h-full bg-cover bg-center z-0 transition-transform duration-500 group-hover:scale-110"
@@ -107,7 +109,7 @@ const DashboardWidget: React.FC<{ icon: React.FC<any>, title: string, descriptio
             role="img"
             aria-label={`Visual representation of ${title}`}
         ></div>
-        
+
         {/* Gradient Overlay for Text Readability */}
         <div className="absolute inset-0 bg-gradient-to-t from-foundation-dark/90 via-foundation-dark/60 to-transparent z-10"></div>
 
@@ -130,7 +132,7 @@ const OperatorStatusWidget: React.FC = () => (
         <h2 className="font-orbitron text-lg font-bold uppercase tracking-wide text-white border-b border-[#333] pb-3 mb-4 flex items-center gap-2">
             <Icons.Gauge className="h-5 w-5 text-neon-surge" /> Operator Status
         </h2>
-        
+
         <div className="space-y-4">
             <div className="flex items-center justify-between text-sm font-jetbrains-mono">
                 <span className="text-text-secondary">RANK / LEVEL:</span>
@@ -160,7 +162,7 @@ const ActivityFeedWidget: React.FC = () => (
         <h2 className="font-orbitron text-lg font-bold uppercase tracking-wide text-white border-b border-[#333] pb-3 mb-4 flex items-center gap-2">
             <Icons.Activity className="h-5 w-5 text-red-500" /> Network Activity
         </h2>
-        
+
         <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
             {activityLogs.map((log, index) => {
                 let colorClass = 'text-neon-surge';
@@ -171,9 +173,10 @@ const ActivityFeedWidget: React.FC = () => (
                     Icon = Icons.Check;
                 } else if (log.type === 'warning') {
                     colorClass = 'text-yellow-400';
-                    Icon = Icons.AlertTriangle;
+                    // FIX: Use the now-defined AlertTriangle icon
+                    Icon = Icons.AlertTriangle; 
                 }
-                
+
                 return (
                     <div key={index} className="flex justify-between items-center text-xs font-jetbrains-mono border-l-2 border-neon-surge/50 pl-3">
                         <div className="flex items-center gap-2">
@@ -194,7 +197,7 @@ const PendingMissionsWidget: React.FC = () => (
         <h2 className="font-orbitron text-lg font-bold uppercase tracking-wide text-white border-b border-[#333] pb-3 mb-4 flex items-center gap-2">
             <Icons.Target className="h-5 w-5 text-indigo-400" /> Pending Contracts
         </h2>
-        
+
         <div className="space-y-4">
             {pendingMissions.map((mission) => (
                 <div key={mission.id} className="flex items-center justify-between p-3 bg-foundation-light/20 rounded-lg border border-neon-surge/10">
@@ -210,7 +213,7 @@ const PendingMissionsWidget: React.FC = () => (
                 </div>
             ))}
         </div>
-        
+
         <div className="mt-4 text-center">
              <Button variant="ghost" size="sm" className="font-orbitron uppercase text-text-secondary hover:text-white">
                 View All Missions <Icons.ArrowRight className="ml-2 h-4 w-4" />
@@ -242,17 +245,17 @@ const DashboardPage: React.FC = () => {
             border: 2px solid #1e293b;
         }
       `}} />
-      
+
       <div className="animate-fadeIn pb-12">
         <h1 className="font-orbitron text-4xl font-extrabold text-white mb-2 uppercase tracking-widest text-shadow-neon">Command Center</h1>
         <p className="text-neon-surge mb-8 font-jetbrains-mono text-sm">// Welcome back, Operator. Systems are online and nominal. Target acquisition is ready.</p>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
+
             {/* Left Sidebar / Status Column (Col span 12 / md:span 4) */}
             <div className="lg:col-span-4 space-y-6">
                 <OperatorStatusWidget />
-                
+
                 <Card className="p-6">
                     <h2 className="font-orbitron text-lg font-bold uppercase tracking-wide text-white mb-4">Quick Actions</h2>
                     <div className="grid grid-cols-2 gap-3">
@@ -262,7 +265,7 @@ const DashboardPage: React.FC = () => {
                     </div>
                 </Card>
             </div>
-            
+
             {/* Main Protocols / Feature Cards (Col span 12 / md:span 8) */}
             <div className="lg:col-span-8">
                 <h2 className="font-orbitron text-2xl font-bold uppercase tracking-wide text-white mb-4">Core Protocols</h2>
@@ -278,7 +281,7 @@ const DashboardPage: React.FC = () => {
                     ))}
                 </div>
             </div>
-            
+
             {/* Bottom Row / Feed & Missions (Full Width) */}
             <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-[#333333]">
                 <div className="md:col-span-1">
