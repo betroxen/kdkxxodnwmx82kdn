@@ -1,9 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-// FIX: We now import AppProvider, which handles all the state logic.
-import { AppProvider } from '@/context/AppContext'; 
-import { AppwriteAuthProvider } from '@/context/AppwriteAuthContext'; 
+// HARD FIX: Using explicit relative paths with .tsx extension to bypass resolution failures.
+import { AppProvider } from './context/AppContext.tsx'; 
+import { AppwriteAuthProvider } from './context/AppwriteAuthContext.tsx'; 
 import './index.css'; 
 
 
