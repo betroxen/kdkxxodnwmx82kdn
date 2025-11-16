@@ -2,15 +2,20 @@ import React from 'react';
 import { Hero } from '../components/Hero';
 import { CoreSections } from '../components/CoreSections';
 import { FinalCTA } from '../components/FinalCTA';
+import { useAppContext } from '@/context/AppContext'; // Access the global state hook
 
-interface HomePageProps {
-  onRegisterClick: () => void;
-}
+// We no longer need an interface for props!
+const HomePage: React.FC = () => {
+  // Access the function directly from the application context
+  const { openAuthModal } = useAppContext();
+  
+  // Define the action: Open the auth modal initialized on the 'register' tab
+  const handleRegisterClick = () => openAuthModal('register');
 
-const HomePage: React.FC<HomePageProps> = ({ onRegisterClick }) => {
   return (
     <div className="animate-fadeIn">
-      <Hero onRegisterClick={onRegisterClick} />
+      {/* Pass the context-derived handler down */}
+      <Hero onRegisterClick={handleRegisterClick} />
       <CoreSections />
       <FinalCTA />
     </div>
@@ -18,3 +23,4 @@ const HomePage: React.FC<HomePageProps> = ({ onRegisterClick }) => {
 };
 
 export default HomePage;
+
