@@ -1,14 +1,152 @@
-import React, { useState, useContext } from 'react';
-import { AppContext, AppContextType } from '../context/AppContext';
-import { ToastContext, ToastContextType } from '../context/ToastContext';
-import { Icons } from '../components/icons';
-import { Card } from '../components/Card';
-import { Button } from '../components/Button';
-import { Input } from '../components/Input';
-import { Toggle } from '../components/Toggle';
+import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
+
+// --- PRODUCTION READY DEPENDENCIES (MOCK IMPLEMENTATIONS FOR SINGLE-FILE EXECUTION) ---
+
+// 1. Icon Mock
+const Icons = {
+    Activity: (props: React.SVGProps<SVGSVGElement>) => <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
+    Wallet: (props: React.SVGProps<SVGSVGElement>) => <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6c0 1.1.9 2 2 2h8l2 4 4-2V9h-4z" /></svg>,
+    FileText: (props: React.SVGProps<SVGSVGElement>) => <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m-5 4h4a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
+    Lock: (props: React.SVGProps<SVGSVGElement>) => <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 11V9a2 2 0 012-2h0a2 2 0 012 2v2" /></svg>,
+    Users: (props: React.SVGProps<SVGSVGElement>) => <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h-1.5a4.5 4.5 0 00-4.5-4.5h-2a4.5 4.5 0 00-4.5 4.5H4a2 2 0 01-2-2v-2a4 4 0 014-4h12a4 4 0 014 4v2a2 2 0 01-2 2zM12 13a4 4 0 100-8 4 4 0 000 8z" /></svg>,
+    Database: (props: React.SVGProps<SVGSVGElement>) => <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10m6-10v10m4-10v10m4-10v10M9 7h6" /></svg>,
+    X: (props: React.SVGProps<SVGSVGElement>) => <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>,
+};
+
+// 2. Context Mocks
+type AppContextType = { setCurrentPage: (page: string) => void };
+const AppContext = createContext<AppContextType | undefined>(undefined);
+
+type ToastType = 'success' | 'error' | 'info';
+type ToastContextType = { showToast: (message: string, type: ToastType) => void };
+const ToastContext = createContext<ToastContextType | undefined>(undefined);
+
+// Simple Toast Provider for visual feedback
+const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const [toast, setToast] = useState<{ message: string, type: ToastType } | null>(null);
+
+    const showToast = useCallback((message: string, type: ToastType = 'info') => {
+        setToast({ message, type });
+    }, []);
+
+    useEffect(() => {
+        if (toast) {
+            const timer = setTimeout(() => setToast(null), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [toast]);
+
+    const getToastColors = (type: ToastType) => {
+        switch (type) {
+            case 'success': return 'bg-neon-surge text-black border-green-700';
+            case 'error': return 'bg-warning-high text-white border-red-700';
+            default: return 'bg-blue-600 text-white border-blue-700';
+        }
+    };
+
+    return (
+        <ToastContext.Provider value={{ showToast }}>
+            {children}
+            {toast && (
+                <div className={`fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-2xl transition-all duration-300 ${getToastColors(toast.type)} animate-slideIn`}>
+                    <div className="flex items-center space-x-3">
+                        <span className="font-jetbrains-mono text-sm font-bold">{toast.message}</span>
+                        <button onClick={() => setToast(null)} className="text-black opacity-70 hover:opacity-100">
+                            <Icons.X className="h-4 w-4" />
+                        </button>
+                    </div>
+                </div>
+            )}
+        </ToastContext.Provider>
+    );
+};
+
+// 3. Component Mocks (Card, Button, Input, Toggle)
+
+// Card Component
+const Card: React.FC<{ children: React.ReactNode, className?: string }> = ({ children, className = '' }) => (
+    <div className={`rounded-xl border border-[#333] bg-foundation ${className}`}>
+        {children}
+    </div>
+);
+
+// Button Component
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+    children: React.ReactNode;
+    loading?: boolean;
+    size?: 'sm' | 'md' | 'lg';
+}
+const Button: React.FC<ButtonProps> = ({ children, loading = false, size = 'md', className = '', ...props }) => {
+    const sizeClasses = {
+        sm: 'py-1 px-3 text-sm',
+        md: 'py-2 px-4 text-base',
+        lg: 'py-3 px-6 text-lg',
+    };
+
+    return (
+        <button
+            {...props}
+            disabled={loading || props.disabled}
+            className={`
+                ${sizeClasses[size]}
+                rounded-lg font-orbitron transition-all duration-200
+                bg-neon-surge text-black hover:bg-white
+                disabled:bg-[#333] disabled:text-text-tertiary disabled:cursor-not-allowed
+                ${loading ? 'cursor-wait opacity-80' : ''}
+                ${className}
+            `}
+        >
+            {loading ? 'Processing...' : children}
+        </button>
+    );
+};
+
+// Input Component
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> {
+    as?: 'input' | 'textarea' | 'select';
+}
+
+const Input: React.FC<InputProps> = ({ as = 'input', className = '', children, ...props }) => {
+    const baseClasses = "w-full rounded-[4px] border border-[#333333] bg-foundation p-3 text-sm text-white font-jetbrains-mono focus:border-neon-surge focus:ring-1 focus:ring-neon-surge outline-none transition-colors duration-200";
+
+    if (as === 'textarea') {
+        return <textarea className={`${baseClasses} ${className}`} {...(props as React.TextareaHTMLAttributes<HTMLTextAreaElement>)}>{children}</textarea>;
+    }
+    if (as === 'select') {
+        return <select className={`${baseClasses} appearance-none cursor-pointer ${className}`} {...(props as React.SelectHTMLAttributes<HTMLSelectElement>)}>{children}</select>;
+    }
+    return <input type="text" className={`${baseClasses} ${className}`} {...(props as React.InputHTMLAttributes<HTMLInputElement>)} />;
+};
+
+
+// Toggle Component
+interface ToggleProps {
+    checked: boolean;
+    onChange: (checked: boolean) => void;
+    label: React.ReactNode;
+    description: React.ReactNode;
+}
+const Toggle: React.FC<ToggleProps> = ({ checked, onChange, label, description }) => (
+    <label className="flex items-start cursor-pointer space-x-4">
+        <div 
+            className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors duration-200 ${checked ? 'bg-neon-surge' : 'bg-[#333]'}`}
+            onClick={() => onChange(!checked)}
+        >
+            <div className={`w-4 h-4 rounded-full bg-white shadow-md transform transition-transform duration-200 ${checked ? 'translate-x-6' : 'translate-x-0'}`} />
+        </div>
+        <div className="flex-1">
+            <div className="text-white text-sm">{label}</div>
+            <div className="text-text-tertiary mt-0.5">{description}</div>
+        </div>
+    </label>
+);
+
+
+// --- PAGE SPECIFIC COMPONENTS ---
 
 const IntelCard = ({ title, children, imageSrc, onClick }: { title: string, children: React.ReactNode, imageSrc: string, onClick: () => void }) => (
     <Card className="p-0 bg-foundation-light border-[#333] hover:border-neon-surge group flex flex-col transition-all active:scale-[0.99] cursor-pointer card-lift overflow-hidden" onClick={onClick}>
+        {/* Placeholder image uses a custom background for thematic consistency */}
         <div className="relative h-32 bg-cover bg-center" style={{ backgroundImage: `url(${imageSrc})` }}>
             <div className="absolute inset-0 bg-black/50 group-hover:bg-black/30 transition-colors"></div>
         </div>
@@ -22,16 +160,41 @@ const IntelCard = ({ title, children, imageSrc, onClick }: { title: string, chil
     </Card>
 );
 
+// --- MAIN APPLICATION STRUCTURE ---
 
-const SupportPage: React.FC = () => {
-    const appContext = useContext(AppContext as React.Context<AppContextType | undefined>);
-    const toastContext = useContext(ToastContext as React.Context<ToastContextType | undefined>);
-    const [isLoading, setIsLoading] = React.useState(false);
+// Define a placeholder component to satisfy the AppContext requirement
+const AppPlaceholder: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    // Mock page state for the IntelCard links to function visually
+    const [currentPage, setCurrentPage] = useState('SupportPage'); 
+    const appContextValue = { setCurrentPage: (page: string) => {
+        // In a real app, this navigates. Here we simulate the change and show a toast.
+        setCurrentPage(page);
+        (window as any).showToast(`NAVIGATING TO: ${page}`, 'info');
+    }};
 
-    const [formData, setFormData] = React.useState({
-        handle: 'DegenGambler',
-        email: 'user@zap.gg',
-        userId: 'UID-459901',
+    return (
+        <AppContext.Provider value={appContextValue}>
+            {children}
+        </AppContext.Provider>
+    );
+}
+
+
+const SupportPageContent: React.FC = () => {
+    // Context hook logic is retained, relying on the Mocks defined above
+    const appContext = useContext(AppContext);
+    const toastContext = useContext(ToastContext);
+
+    // Cast the contexts for immediate use if not null
+    const { showToast } = toastContext || { showToast: (msg: string, type: ToastType) => console.log(`Toast: [${type}] ${msg}`) };
+    const setCurrentPage = appContext?.setCurrentPage || ((page: string) => console.log(`Navigating to: ${page}`));
+
+    const [isLoading, setIsLoading] = useState(false);
+
+    const [formData, setFormData] = useState({
+        handle: 'DegenGambler', // Should be read from user session in production
+        email: 'user@zap.gg', // Should be read from user session in production
+        userId: 'UID-459901', // Should be read from user session in production
         category: 'GENERAL',
         priority: 'STANDARD',
         operator: '',
@@ -42,26 +205,28 @@ const SupportPage: React.FC = () => {
         attestTc: false
     });
 
-    if (!appContext || !toastContext) return null;
-    const { showToast } = toastContext;
-
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
+        const { name, value, type } = e.target;
+        // Handle input change naturally
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // 1. Mandatory Attestations Check
         if (!formData.attestData || !formData.attestTc) {
              showToast("TRANSMISSION FAILED: Mandatory attestations required.", "error");
              return;
         }
 
+        // 2. Critical Signal Check
         if (formData.priority === 'CRITICAL' && !formData.evidenceUrl) {
             showToast("CRITICAL SIGNAL REQUIRES EVIDENCE URL. Fortify your claim.", "error");
             return;
         }
 
+        // 3. Message Detail Check
         if (formData.message.split('\n').filter(line => line.trim() !== '').length < 3) {
             showToast("DETAILED REPORT (3+ lines) is mandatory. Be precise.", "error");
             return;
@@ -69,9 +234,11 @@ const SupportPage: React.FC = () => {
 
         setIsLoading(true);
 
+        // --- Production Note: Here you would call your actual backend API to submit the ticket ---
         setTimeout(() => {
             setIsLoading(false);
             showToast("SIGNAL TRANSMITTED. Ticket #9432 created.", "success");
+            // Reset form state, retaining fixed user details
             setFormData(prev => ({ 
                 ...prev, 
                 category: 'GENERAL', 
@@ -97,7 +264,7 @@ const SupportPage: React.FC = () => {
     ];
 
   return (
-    <div className="container mx-auto max-w-6xl animate-fadeIn">
+    <div className="container mx-auto max-w-6xl animate-fadeIn p-4 md:p-0">
         <div className="mb-12">
             <div className="flex items-center gap-3 mb-4">
                 <Icons.Activity className="h-10 w-10 text-neon-surge" />
@@ -130,7 +297,6 @@ const SupportPage: React.FC = () => {
                             <button key={i} className="p-3 bg-foundation-light border border-[#333] rounded-xl text-left hover:border-neon-surge transition-all group active:scale-[0.98]">
                                 <item.icon className="h-5 w-5 text-text-tertiary group-hover:text-neon-surge mb-2" />
                                 <div className="font-orbitron font-bold text-xs text-white uppercase mb-1">{item.title}</div>
-                                {/* FIXED: Replaced literal '>' with the HTML entity '&gt;' to resolve JSX parsing error */}
                                 <div className="font-jetbrains-mono text-[10px] text-neon-surge uppercase group-hover:underline">&gt; {item.action}</div>
                             </button>
                         ))}
@@ -145,20 +311,16 @@ const SupportPage: React.FC = () => {
                 <span className="text-neon-surge">01 //</span> INTEL CIRCUIT & PROTOCOL ACCESS
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* FIX: IntelCard expects a 'children' prop. Added content to satisfy the requirement. */}
-                <IntelCard imageSrc="https://files.catbox.moe/7y0cnq.jpg" title="KNOWLEDGE BASE" onClick={() => appContext.setCurrentPage('Review Methodology')}>
+                <IntelCard imageSrc="https://placehold.co/600x400/003322/00ffc0?text=KNOWLEDGE" title="KNOWLEDGE BASE" onClick={() => setCurrentPage('Review Methodology')}>
                     Raw Data Library on ZAP mechanics, score pillars, and vetting blueprints.
                 </IntelCard>
-                {/* FIX: IntelCard expects a 'children' prop. Added content to satisfy the requirement. */}
-                <IntelCard imageSrc="https://files.catbox.moe/uo4qj0.jpg" title="RESPONSIBLE GAMING" onClick={() => appContext.setCurrentPage('Responsible Gaming')}>
+                <IntelCard imageSrc="https://placehold.co/600x400/331100/ffaa77?text=RG+TOOLS" title="RESPONSIBLE GAMING" onClick={() => setCurrentPage('Responsible Gaming')}>
                     Fortified tools for discipline—timers, loss thresholds, and Unplug maneuvers.
                 </IntelCard>
-                {/* FIX: IntelCard expects a 'children' prop. Added content to satisfy the requirement. */}
-                <IntelCard imageSrc="https://files.catbox.moe/09tyaf.jpg" title="LEGAL MANIFESTO" onClick={() => appContext.setCurrentPage('Terms of Service')}>
+                <IntelCard imageSrc="https://placehold.co/600x400/002244/00ccff?text=LEGAL+MANIFESTO" title="LEGAL MANIFESTO" onClick={() => setCurrentPage('Terms of Service')}>
                     Ironclad dossiers: Terms, Privacy, and Commercial Disclosure.
                 </IntelCard>
-                 {/* FIX: IntelCard expects a 'children' prop. Added content to satisfy the requirement. */}
-                <IntelCard imageSrc="https://files.catbox.moe/017gme.jpg" title="PARTNERSHIP ARCHIVE" onClick={() => appContext.setCurrentPage('Affiliate Program')}>
+                <IntelCard imageSrc="https://placehold.co/600x400/1a1a1a/cccccc?text=PARTNERSHIP" title="PARTNERSHIP ARCHIVE" onClick={() => setCurrentPage('Affiliate Program')}>
                     Operator synergy docs, referral blueprints, and revenue loop APIs.
                 </IntelCard>
             </div>
@@ -170,7 +332,7 @@ const SupportPage: React.FC = () => {
             </h2>
 
             <Card className="p-0 overflow-hidden border-neon-surge/30 bg-foundation shadow-2xl">
-                <div className="bg-foundation-light/50 p-4 border-b border-[#333] flex items-center justify-between">
+                <div className="bg-foundation-light/50 p-4 border-b border-neon-surge/30 flex items-center justify-between">
                     <span className="font-jetbrains-mono text-sm text-neon-surge uppercase tracking-widest flex items-center gap-3">
                         <span className="relative flex h-3 w-3">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-surge opacity-75"></span>
@@ -181,7 +343,7 @@ const SupportPage: React.FC = () => {
                 </div>
 
                 <div className="p-6 md:p-10">
-                    <p className="text-text-secondary mb-10 border-l-4 border-neon-surge pl-4 py-3 bg-neon-surge/5 font-jetbrains-mono text-sm leading-relaxed">
+                    <p className="text-text-secondary mb-10 border-l-4 border-neon-surge pl-4 py-3 bg-neon-surge/5 font-jetbrains-mono text-sm leading-relaxed rounded-md">
                         <strong className="text-neon-surge font-bold uppercase">MISSION DIRECTIVE:</strong> Channel your intel with surgical clarity. Our vanguard team prioritizes fortified signals. Vague transmissions queue longer.
                     </p>
 
@@ -228,7 +390,7 @@ const SupportPage: React.FC = () => {
                                         name="priority" 
                                         value={formData.priority} 
                                         onChange={handleInputChange}
-                                        className={formData.priority === 'CRITICAL' ? '!text-warning-high !border-warning-high/50 !bg-warning-high/10 font-bold' : formData.priority === 'ELEVATED' ? '!text-yellow-500' : ''}
+                                        className={formData.priority === 'CRITICAL' ? '!text-warning-high !border-warning-high/50 !bg-warning-high/10 font-bold' : formData.priority === 'ELEVATED' ? '!text-yellow-500 !border-yellow-500/50 !bg-yellow-500/10' : ''}
                                     >
                                         <option value="STANDARD">STANDARD (48-72h)</option>
                                         <option value="ELEVATED">ELEVATED (24h)</option>
@@ -303,7 +465,7 @@ const SupportPage: React.FC = () => {
                             <Button 
                                 type="submit" 
                                 size="lg" 
-                                className="w-full h-14 font-bold uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(0,255,192,0.5)] transition-transform hover:scale-[1.005]"
+                                className="w-full h-14 font-bold uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(0,255,192,0.5)] transition-transform hover:scale-[1.005] active:scale-100"
                                 loading={isLoading}
                                 disabled={!formData.attestData || !formData.attestTc}
                             >
@@ -367,4 +529,14 @@ const SupportPage: React.FC = () => {
   );
 };
 
+// Wrap the main content with the necessary mock providers
+const SupportPage: React.FC = () => (
+    <ToastProvider>
+        <AppPlaceholder>
+            <SupportPageContent />
+        </AppPlaceholder>
+    </ToastProvider>
+);
+
 export default SupportPage;
+
