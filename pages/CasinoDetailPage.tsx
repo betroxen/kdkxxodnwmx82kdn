@@ -1,9 +1,51 @@
-import React, { useState, useMemo, useContext } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Icons } from '../components/icons';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
-import { casinos } from '../constants/casinos';
-import { AppContext } from '../context/AppContext';
+import { casinos } from '../constants/casinos'; // Assuming this imports the data
+
+// --- TYPE DEFINITIONS (CRITICAL FOR PRODUCTION) ---
+
+interface IZeroEdgeIntel {
+    rtp: string;
+    houseEdge: string;
+    kycFriction: string;
+    withdrawalLimits: string;
+    leaderboardMonthly: string;
+    mathThesis: string;
+}
+
+interface IKycPolicy {
+    level1: string;
+    level2: string;
+    level3: string;
+    level4: string;
+}
+
+export interface ICasino {
+    id: string;
+    name: string;
+    logo: string;
+    status: 'VERIFIED' | 'PENDING' | 'DELISTED'; // Example statuses
+    certified: boolean;
+    specialRanking?: 'ETERNAL CROWN' | 'HIGH POTENTIAL';
+    description: string;
+    rating: number;
+    reviewCount: number;
+    withdrawalTime: string;
+    established: number;
+    bonus: string;
+    zeroEdgeIntel?: IZeroEdgeIntel;
+    company: string;
+    founder: string;
+    license: string;
+    companySize: string;
+    paymentMethods: string;
+    tags: string[];
+    languages: string;
+    kycPolicy: IKycPolicy;
+    restrictedTerritories: string;
+}
 
 interface CasinoDetailPageProps {
     casinoId: string;
@@ -11,9 +53,31 @@ interface CasinoDetailPageProps {
     onOpenReview: () => void;
 }
 
+// --- CONSTANTS (MOVED OUTSIDE COMPONENT FOR PERFORMANCE) ---
+
+const TABS = [
+    { id: 'overview', label: 'OPERATIONAL INTEL', icon: Icons.LayoutDashboard },
+    { id: 'kyc', label: 'KYC & COMPLIANCE PROTOCOL', icon: Icons.Shield },
+    { id: 'vprs', label: 'VPR FEED (COMMUNITY)', icon: Icons.MessageSquare },
+];
+
+const TabButtonClasses = (active: boolean) => `
+    flex items-center gap-2.5 px-6 py-4 font-orbitron uppercase transition-all border-b-2 whitespace-nowrap tracking-wider 
+    text-xs md:text-sm
+    ${active 
+        ? 'border-neon-surge text-white bg-neon-surge/5' 
+        : 'border-transparent text-text-secondary hover:text-white hover:bg-foundation-light'
+    }
+`;
+
+// --- COMPONENT ---
+
 export const CasinoDetailPage: React.FC<CasinoDetailPageProps> = ({ casinoId, onBack, onOpenReview }) => {
+    // State
     const [activeTab, setActiveTab] = useState('overview');
-    const casino = useMemo(() => casinos.find(c => c.id === casinoId), [casinoId]);
+
+    // Memoized Lookup
+    const casino = useMemo(() => casinos.find((c): c is ICasino => c.id === casinoId), [casinoId]);
 
     if (!casino) {
         return (
@@ -27,12 +91,6 @@ export const CasinoDetailPage: React.FC<CasinoDetailPageProps> = ({ casinoId, on
     }
 
     const isEternalCrown = casino.specialRanking === 'ETERNAL CROWN';
-
-    const TABS = [
-        { id: 'overview', label: 'OPERATIONAL INTEL', icon: Icons.LayoutDashboard },
-        { id: 'kyc', label: 'KYC & COMPLIANCE PROTOCOL', icon: Icons.Shield },
-        { id: 'vprs', label: 'VPR FEED (COMMUNITY)', icon: Icons.MessageSquare },
-    ];
 
     return (
         <div className="container mx-auto max-w-7xl animate-fadeIn">
@@ -69,7 +127,12 @@ export const CasinoDetailPage: React.FC<CasinoDetailPageProps> = ({ casinoId, on
                                 </span>
                             )}
                         </div>
-                        <p className="text-lg text-text-secondary max-w-3xl mb-6 leading-relaxed font-medium" dangerouslySetInnerHTML={{ __html: casino.description.replace(/\*\*(.*?)\*\*/g, '<strong class="text-neon-surge font-bold">$1</strong>') }}/>
+                        {/* WARNING: dangerouslySetInnerHTML is used here. ENSURE 'casino.description' is sanitized 
+                            or comes from a trusted source to prevent XSS attacks in a real-world application. */}
+                        <p 
+                            className="text-lg text-text-secondary max-w-3xl mb-6 leading-relaxed font-medium" 
+                            dangerouslySetInnerHTML={{ __html: casino.description.replace(/\*\*(.*?)\*\*/g, '<strong class="text-neon-surge font-bold">$1</strong>') }}
+                        />
 
                         {/* Quick Action Cluster */}
                         <div className="flex flex-wrap gap-4">
@@ -90,7 +153,10 @@ export const CasinoDetailPage: React.FC<CasinoDetailPageProps> = ({ casinoId, on
                         </div>
                         <div className="flex justify-center gap-1 mb-3">
                              {[...Array(5)].map((_, i) => (
-                                <Icons.Star key={i} className={`h-4 w-4 ${i < Math.floor(casino.rating) ? 'fill-neon-surge text-neon-surge' : 'text-[#333]'}`} />
+                                <Icons.Star 
+                                    key={i} 
+                                    className={`h-4 w-4 ${i < Math.floor(casino.rating) ? 'fill-neon-surge text-neon-surge' : 'text-[#333]'}`} 
+                                />
                              ))}
                         </div>
                         <div className="text-[10px] text-text-tertiary font-jetbrains-mono uppercase border-t border-[#333] pt-3">
@@ -102,20 +168,19 @@ export const CasinoDetailPage: React.FC<CasinoDetailPageProps> = ({ casinoId, on
 
             {/* TABS NAVIGATION */}
             <div className="flex overflow-x-auto border-b border-[#333] mb-8 custom-scrollbar sticky top-16 bg-foundation z-20 pt-2">
-                {TABS.map(tab => (
-                    <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`flex items-center gap-2.5 px-6 py-4 font-orbitron uppercase text-xs md:text-sm transition-all border-b-2 whitespace-nowrap tracking-wider ${
-                            activeTab === tab.id 
-                            ? 'border-neon-surge text-white bg-neon-surge/5' 
-                            : 'border-transparent text-text-secondary hover:text-white hover:bg-foundation-light'
-                        }`}
-                    >
-                        <tab.icon className={`h-4 w-4 ${activeTab === tab.id ? 'text-neon-surge' : 'opacity-70'}`} />
-                        {tab.label}
-                    </button>
-                ))}
+                {TABS.map(tab => {
+                    const isActive = activeTab === tab.id;
+                    return (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={TabButtonClasses(isActive)}
+                        >
+                            <tab.icon className={`h-4 w-4 ${isActive ? 'text-neon-surge' : 'opacity-70'}`} />
+                            {tab.label}
+                        </button>
+                    );
+                })}
             </div>
 
             {/* TAB CONTENT AREA */}
@@ -329,3 +394,4 @@ export const CasinoDetailPage: React.FC<CasinoDetailPageProps> = ({ casinoId, on
         </div>
     );
 };
+
