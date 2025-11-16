@@ -1,24 +1,27 @@
-import { Client, Account, Databases, ID } from 'appwrite'; // 'import' is now lowercase
+import { Client, Account, Databases, ID } from 'appwrite'; 
 
-// Pulling credentials from the secure .env file
+// CRITICAL: Pulling credentials directly from the secure environment during build/runtime.
 const PROJECT_ID: string = import.meta.env.VITE_APPWRITE_PROJECT_ID; 
 const API_ENDPOINT: string = import.meta.env.VITE_APPWRITE_ENDPOINT;
 
-// Fail fast: essential for production readiness
+// Fail fast check: If these are missing, the app cannot operate.
 if (!PROJECT_ID || !API_ENDPOINT) {
-    // This will now successfully throw an error to the console, instead of a silent crash
-    throw new Error("Appwrite credentials not defined in .env file."); 
+    throw new Error("Appwrite credentials (PROJECT_ID or ENDPOINT) are not defined in the environment variables."); 
 }
 
+// 1. Initialize the Core Client
 const client = new Client();
 
-// Set the endpoint and project ID for the client
 client
     .setEndpoint(API_ENDPOINT)
     .setProject(PROJECT_ID); 
 
-// Export the core services for use throughout your app
+// 2. Export the Core Appwrite Services
 export const account = new Account(client);
 export const databases = new Databases(client);
-// Note: You may need to export 'storage' if you plan to use file uploads.
+
+// NOTE: Uncomment and initialize 'storage' if you implement file uploads (Avatars, Logos, etc.)
+// export const storage = new Storage(client);
+
+// Export ID for document creation, crucial for unique/predictable IDs
 export { ID };
